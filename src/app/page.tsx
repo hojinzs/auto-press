@@ -5,6 +5,14 @@ export default function Home() {
       <p className="mt-4 text-lg text-muted-foreground">
         Intelligent WordPress Auto-Publishing System
       </p>
+      <div className="mt-8">
+        <a 
+          href="/settings/connections" 
+          className="rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-all shadow-md active:scale-95"
+        >
+          워드프레스 연동 관리 시작하기
+        </a>
+      </div>
     </div>
   );
 }
