@@ -5,7 +5,7 @@ export type GenerationJobStatus =
   | "completed"
   | "failed";
 
-export type DraftStatus = "draft" | "published" | "archived";
+export type DraftStatus = "draft" | "published" | "scheduled" | "archived";
 
 export interface GenerationJob {
   id: string;
@@ -46,6 +46,7 @@ export interface ContentDraft {
     generation_duration_ms?: number;
     profile_version?: number;
   };
+  scheduled_at?: string;
   status: DraftStatus;
   created_at: string;
   updated_at: string;
