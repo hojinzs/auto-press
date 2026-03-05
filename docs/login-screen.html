@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Ibarra+Real+Nova:wght@400;600;700&amp;family=Newsreader:opsz,wght@6..72,300;6..72,400;6..72,500;6..72,600;6..72,700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#e63119",
+                        "background-light": "#f8f6f6",
+                        "background-dark": "#211311",
+                        "paper": "#F5F2EB",
+                    },
+                    fontFamily: {
+                        "display": ["Ibarra Real Nova", "serif"],
+                        "body": ["Newsreader", "serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Newsreader', serif;
+        }
+        h1, h2, h3, .font-serif-header {
+            font-family: 'Ibarra Real Nova', serif;
+        }
+    </style>
+</head>
+<body class="bg-paper dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex flex-col items-center justify-center p-6">
+<!-- Logo Section -->
+<div class="mb-12 flex flex-col items-center gap-3">
+<div class="size-10 text-primary">
+<svg fill="currentColor" viewbox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path d="M4 4H17.3334V17.3334H30.6666V30.6666H44V44H4V4Z"></path>
+</svg>
+</div>
+<h2 class="text-2xl font-bold tracking-tight font-serif-header">Editorial Flow</h2>
+</div>
+<!-- Main Authentication Card -->
+<div class="w-full max-w-md bg-white dark:bg-slate-900 shadow-sm border border-slate-200 dark:border-slate-800 rounded-lg p-8 md:p-10">
+<div class="text-center mb-10">
+<h1 class="text-3xl font-bold leading-tight mb-2 font-serif-header">Welcome Back</h1>
+<p class="text-slate-600 dark:text-slate-400 text-sm">Sign in to access your creative workspace.</p>
+</div>
+<form class="space-y-6">
+<!-- Email Input -->
+<div class="flex flex-col gap-2">
+<label class="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Email Address</label>
+<input class="w-full h-12 px-4 bg-background-light dark:bg-slate-800 border-none rounded focus:ring-1 focus:ring-primary transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400" placeholder="editor@editorialflow.com" type="email"/>
+</div>
+<!-- Password Input -->
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-center">
+<label class="text-xs font-semibold uppercase tracking-widest text-slate-500 dark:text-slate-400">Password</label>
+<a class="text-xs text-primary hover:underline" href="#">Forgot?</a>
+</div>
+<div class="relative group">
+<input class="w-full h-12 px-4 bg-background-light dark:bg-slate-800 border-none rounded focus:ring-1 focus:ring-primary transition-all text-slate-900 dark:text-slate-100 placeholder:text-slate-400 pr-10" placeholder="••••••••" type="password"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors" type="button">
+<span class="material-symbols-outlined text-xl">visibility</span>
+</button>
+</div>
+</div>
+<!-- Action Button -->
+<button class="w-full h-12 bg-primary text-white font-semibold rounded hover:opacity-90 transition-opacity flex items-center justify-center gap-2">
+                Sign In
+                <span class="material-symbols-outlined text-lg">arrow_forward</span>
+</button>
+</form>
+<!-- Divider -->
+<div class="relative my-8">
+<div class="absolute inset-0 flex items-center">
+<span class="w-full border-t border-slate-200 dark:border-slate-800"></span>
+</div>
+<div class="relative flex justify-center text-xs uppercase">
+<span class="bg-white dark:bg-slate-900 px-3 text-slate-400 tracking-widest">Or continue with</span>
+</div>
+</div>
+<!-- Social Login Placeholder -->
+<div class="grid grid-cols-2 gap-4">
+<button class="flex items-center justify-center h-12 border border-slate-200 dark:border-slate-800 rounded hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+<div class="size-5 mr-2 bg-slate-100 rounded-full flex items-center justify-center overflow-hidden">
+<img alt="Google Logo" data-alt="Google logo icon for social login" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCV2XQ_i_9kQGnQB0H1oUu1doJRzXYsz6wQbi9AMv92ASrUimcURT7zJxgOnkq8I8el-Dk9FnKfLEZHhrQCBgdQYFdgdY9agCxtUgRaV1WrSPGIrF112ijrhwcbedY2BSiZWWM-MJ0ECE6UN_DC3Hub_nhFAn8zt4VTM8aoNRikXvbfyAfuKBFup6icFj-OpykAPMatAmQrEpD0_MMPqrVKvnxC0Jthh7HVnLijrIXzrxGr3WimHJAUXmPADruimXqrgulfMsXPfaY"/>
+</div>
+<span class="text-sm font-medium">Google</span>
+</button>
+<button class="flex items-center justify-center h-12 border border-slate-200 dark:border-slate-800 rounded hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+<div class="size-5 mr-2 bg-slate-100 rounded-full flex items-center justify-center overflow-hidden">
+<img alt="Apple Logo" data-alt="Apple logo icon for social login" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDFtZQQOey6t4aWw7QDnT6wthSB0aFYV7EstFumvboW_XFKaoG_HBB8SrmxsA-RiLutjoRE0-g46gRXHi1-k5vsGnaHgUXdrXvlyfyu2jOO0l-SZCiFK-Q0X1ChcoQ1h5pcc4GMvmhGHyrjgmryRVDHb0LTeF5xB6KuQTGp7NdQmGpSM7B-_q4S_KD4j4hX5lqoKdhZ3M3CLF-7K5A8Bkgcf2Ca52-SY-qBbEctz-LeddMiaKPmmf0AogESJywdoOHZclKLrb7zV_A"/>
+</div>
+<span class="text-sm font-medium">Apple</span>
+</button>
+</div>
+<!-- Bottom Link -->
+<div class="mt-10 text-center">
+<p class="text-sm text-slate-600 dark:text-slate-400">
+                New to the platform? 
+                <a class="text-primary font-semibold hover:underline decoration-2 underline-offset-4" href="#">Create an account</a>
+</p>
+</div>
+</div>
+<!-- Footer Decoration -->
+<footer class="mt-12 text-slate-400 dark:text-slate-600 text-xs uppercase tracking-[0.2em] font-medium">
+        © 2024 Editorial Flow Ltd.
+    </footer>
+<!-- Background Pattern Decoration (Subtle) -->
+<div class="fixed inset-0 -z-10 pointer-events-none opacity-[0.03] dark:opacity-[0.05]" data-alt="Subtle paper texture overlay" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCUW22eSgVBNlq37ExIlKD6n3lCpJN4w89msxVJPuUAq2SQjoZu2cCEhnaNuqr4BFfpRnEuJ6chwcMoBE8eVT9lj7gCrBJW7SanuQoU2Y9SK_Z9nzArNdV29U-qMN-RDs9LJ4GyRIaVIFt_GIaNwXvbOJTQDHxpF6vwIsLtQ0JcKjwwmU_BeWAdfCXR0j0dQeBNXdiqTkfH-p5Whfb1ow_gDG-LgHf99url6AqxiEri7hB1LjeaXMp8GTWax271PFd4-6whmlZb3e8');"></div>
+</body></html>
