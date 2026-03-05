@@ -35,16 +35,14 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // 여기서 인증된 사용자만 접근해야 하는 라우트를 검증할 수 있습니다.
-  // if (
-  //   !user &&
-  //   !request.nextUrl.pathname.startsWith('/login') &&
-  //   !request.nextUrl.pathname.startsWith('/auth')
-  // ) {
-  //   const url = request.nextUrl.clone()
-  //   url.pathname = '/login'
-  //   return NextResponse.redirect(url)
-  // }
+  const pathname = request.nextUrl.pathname
+  const publicPaths = ['/login', '/signup', '/auth/callback', '/forgot-password', '/reset-password']
+  const isApiPath = pathname === '/api' || pathname.startsWith('/api/')
+  if (!user && !isApiPath && !publicPaths.some((path) => pathname.startsWith(path))) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    return NextResponse.redirect(url)
+  }
 
   return supabaseResponse
 }

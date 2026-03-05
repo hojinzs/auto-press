@@ -45,6 +45,10 @@ export interface ContentDraft {
     tokens_used?: number;
     generation_duration_ms?: number;
     profile_version?: number;
+    wp_post_id?: number;
+    wp_post_url?: string;
+    wp_post_status?: string;
+    published_at?: string;
   };
   scheduled_at?: string;
   status: DraftStatus;

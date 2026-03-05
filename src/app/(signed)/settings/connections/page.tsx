@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { AddSiteForm } from "@/components/AddSiteForm";
-import { Loader2, Plus, Globe, Trash2, ShieldCheck, AlertCircle, RefreshCcw, ExternalLink, Database } from "lucide-react";
+import { Loader2, Plus, Globe, Trash2, ShieldCheck, AlertCircle, RefreshCcw, ExternalLink, Database, Pencil, X, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CollectionProgress } from "@/components/CollectionProgress";
 import { SiteProfileCard } from "@/components/SiteProfileCard";
@@ -74,6 +74,10 @@ export default function ConnectionsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editSiteName, setEditSiteName] = useState("");
+  const [editWpPassword, setEditWpPassword] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   const supabase = createClient();
 
@@ -97,6 +101,43 @@ export default function ConnectionsPage() {
   useEffect(() => {
     fetchConnections();
   }, []);
+
+  const handleEdit = (site: WordPressConnection) => {
+    setEditingId(site.id);
+    setEditSiteName(site.site_name);
+    setEditWpPassword("");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setEditSiteName("");
+    setEditWpPassword("");
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingId || !editSiteName.trim()) return;
+    setIsSaving(true);
+    try {
+      const res = await fetch(`/api/sites/${editingId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          site_name: editSiteName.trim(),
+          wp_password: editWpPassword || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "수정에 실패했습니다.");
+      }
+      handleCancelEdit();
+      fetchConnections();
+    } catch (err: any) {
+      alert(err.message || "수정 중 오류가 발생했습니다.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleDelete = async (id: string) => {
     if (!confirm("정말로 이 사이트 연동을 삭제하시겠습니까? 관련 데이터가 더 이상 동기화되지 않습니다.")) {
@@ -186,41 +227,91 @@ export default function ConnectionsPage() {
                       <Globe className="h-6 w-6" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-lg flex items-center gap-2">
-                          {site.site_name}
-                          {site.status === "active" ? (
-                               <span className="flex items-center text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tight">
-                                  <span className="h-1 w-1 bg-green-600 rounded-full mr-1 animate-pulse" />
-                                  Connected
+                      {editingId === site.id ? (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={editSiteName}
+                            onChange={(e) => setEditSiteName(e.target.value)}
+                            className="bg-muted/50 border rounded-lg px-3 py-1.5 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary w-full"
+                            placeholder="사이트 이름"
+                          />
+                          <input
+                            type="password"
+                            value={editWpPassword}
+                            onChange={(e) => setEditWpPassword(e.target.value)}
+                            className="bg-muted/50 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary w-full"
+                            placeholder="새 비밀번호 (변경 시에만 입력)"
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <h3 className="font-semibold text-lg flex items-center gap-2">
+                              {site.site_name}
+                              {site.status === "active" ? (
+                                   <span className="flex items-center text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tight">
+                                      <span className="h-1 w-1 bg-green-600 rounded-full mr-1 animate-pulse" />
+                                      Connected
+                                   </span>
+                              ) : (
+                                  <span className="flex items-center text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tight">
+                                      Error
+                                   </span>
+                              )}
+                          </h3>
+                          <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                            <ExternalLink className="h-3 w-3" />
+                            <a href={site.site_url} target="_blank" className="hover:underline">{site.site_url}</a>
+                          </p>
+                          <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground/80">
+                               <span className="flex items-center gap-1">
+                                  <ShieldCheck className="h-3 w-3" /> {site.wp_username}
                                </span>
-                          ) : (
-                              <span className="flex items-center text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tight">
-                                  Error
-                               </span>
-                          )}
-                      </h3>
-                      <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                        <ExternalLink className="h-3 w-3" />
-                        <a href={site.site_url} target="_blank" className="hover:underline">{site.site_url}</a>
-                      </p>
-                      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground/80">
-                           <span className="flex items-center gap-1">
-                              <ShieldCheck className="h-3 w-3" /> {site.wp_username}
-                           </span>
-                           <span className="text-muted-foreground/20">|</span>
-                           <span>연동일: {new Date(site.created_at).toLocaleDateString()}</span>
-                      </div>
+                               <span className="text-muted-foreground/20">|</span>
+                               <span>연동일: {new Date(site.created_at).toLocaleDateString()}</span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 mt-4 sm:mt-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                     <button
-                      onClick={() => handleDelete(site.id)}
-                      className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-                      title="사이트 연동 해제"
-                     >
-                      <Trash2 className="h-5 w-5" />
-                     </button>
+                     {editingId === site.id ? (
+                       <>
+                         <button
+                           onClick={handleSaveEdit}
+                           disabled={isSaving || !editSiteName.trim()}
+                           className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                           title="저장"
+                         >
+                           {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
+                         </button>
+                         <button
+                           onClick={handleCancelEdit}
+                           className="p-2 text-muted-foreground hover:bg-muted rounded-lg transition-colors"
+                           title="취소"
+                         >
+                           <X className="h-5 w-5" />
+                         </button>
+                       </>
+                     ) : (
+                       <>
+                         <button
+                           onClick={() => handleEdit(site)}
+                           className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                           title="사이트 정보 수정"
+                         >
+                           <Pencil className="h-5 w-5" />
+                         </button>
+                         <button
+                           onClick={() => handleDelete(site.id)}
+                           className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                           title="사이트 연동 해제"
+                         >
+                           <Trash2 className="h-5 w-5" />
+                         </button>
+                       </>
+                     )}
                   </div>
                 </div>
                 <SiteCollectionPanel credentialId={site.id} />
