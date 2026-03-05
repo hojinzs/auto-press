@@ -1,6 +1,6 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import { useDraft } from "@/hooks/useDraft";
 import Link from "next/link";
 import {
@@ -13,6 +13,8 @@ import {
   Cpu,
   Save,
   Trash2,
+  Send,
+  CalendarClock,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -24,8 +26,10 @@ export default function DraftDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { draft, isLoading, isSaving, updateDraft } = useDraft(id);
+  const { draft, isLoading, isSaving, isPublishing, updateDraft, publishDraft } = useDraft(id);
   const router = useRouter();
+  const [showScheduler, setShowScheduler] = useState(false);
+  const [scheduledAt, setScheduledAt] = useState("");
 
   const handleDelete = async () => {
     const res = await fetch(`/api/content/${id}`, { method: "DELETE" });
@@ -33,6 +37,26 @@ export default function DraftDetailPage({
       router.push("/drafts");
     }
   };
+
+  const handlePublishNow = async () => {
+    await publishDraft();
+  };
+
+  const handleSchedulePublish = async () => {
+    if (!scheduledAt) return;
+    await publishDraft(new Date(scheduledAt).toISOString());
+    setShowScheduler(false);
+    setScheduledAt("");
+  };
+
+  // Minimum datetime for scheduler: current time formatted for datetime-local input
+  const getMinDateTime = () => {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    return now.toISOString().slice(0, 16);
+  };
+
+  const isPublishedOrScheduled = draft?.status === "published" || draft?.status === "scheduled";
 
   if (isLoading || !draft) {
     return (
@@ -239,7 +263,9 @@ export default function DraftDetailPage({
                     ? "초안"
                     : draft.status === "published"
                       ? "발행됨"
-                      : draft.status}
+                      : draft.status === "scheduled"
+                        ? "예약됨"
+                        : draft.status}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -254,7 +280,104 @@ export default function DraftDetailPage({
                   {new Date(draft.updated_at).toLocaleDateString()}
                 </span>
               </div>
+              {draft.scheduled_at && (
+                <div className="flex justify-between">
+                  <span>예약 발행일</span>
+                  <span className="font-medium text-foreground">
+                    {new Date(draft.scheduled_at).toLocaleString()}
+                  </span>
+                </div>
+              )}
             </div>
+          </div>
+
+          {/* Publish Actions */}
+          <div className="bg-card border rounded-2xl p-5 space-y-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold">
+              <Send className="h-4 w-4 text-primary" />
+              발행
+            </h3>
+            {isPublishedOrScheduled ? (
+              <p className="text-xs text-muted-foreground">
+                {draft.status === "published"
+                  ? "이미 발행된 초안입니다."
+                  : "예약 발행이 설정되어 있습니다."}
+              </p>
+            ) : (
+              <div className="space-y-3">
+                <button
+                  onClick={handlePublishNow}
+                  disabled={isPublishing}
+                  className={cn(
+                    "w-full inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all",
+                    isPublishing
+                      ? "bg-muted text-muted-foreground cursor-not-allowed"
+                      : "bg-primary text-primary-foreground hover:bg-primary/90",
+                  )}
+                >
+                  {isPublishing ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Send className="h-3 w-3" />
+                  )}
+                  즉시 발행
+                </button>
+
+                {!showScheduler ? (
+                  <button
+                    onClick={() => setShowScheduler(true)}
+                    disabled={isPublishing}
+                    className={cn(
+                      "w-full inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all",
+                      isPublishing
+                        ? "bg-muted text-muted-foreground cursor-not-allowed"
+                        : "bg-primary/10 text-primary hover:bg-primary/20",
+                    )}
+                  >
+                    <CalendarClock className="h-3 w-3" />
+                    예약 발행
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <input
+                      type="datetime-local"
+                      min={getMinDateTime()}
+                      value={scheduledAt}
+                      onChange={(e) => setScheduledAt(e.target.value)}
+                      className="w-full rounded-lg border bg-background px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/50"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSchedulePublish}
+                        disabled={isPublishing || !scheduledAt}
+                        className={cn(
+                          "flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-all",
+                          isPublishing || !scheduledAt
+                            ? "bg-muted text-muted-foreground cursor-not-allowed"
+                            : "bg-primary text-primary-foreground hover:bg-primary/90",
+                        )}
+                      >
+                        {isPublishing ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <CalendarClock className="h-3 w-3" />
+                        )}
+                        예약
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowScheduler(false);
+                          setScheduledAt("");
+                        }}
+                        className="flex-1 inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-medium text-muted-foreground hover:bg-muted transition-all"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

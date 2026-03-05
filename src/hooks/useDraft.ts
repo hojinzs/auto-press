@@ -7,6 +7,7 @@ export function useDraft(draftId: string | null) {
   const [draft, setDraft] = useState<ContentDraft | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const fetchDraft = useCallback(async () => {
     if (!draftId) return;
@@ -52,5 +53,30 @@ export function useDraft(draftId: string | null) {
     }
   };
 
-  return { draft, isLoading, isSaving, updateDraft, refetch: fetchDraft };
+  const publishDraft = async (scheduledAt?: string) => {
+    if (!draftId) return;
+
+    setIsPublishing(true);
+    try {
+      const body: Record<string, string> = {};
+      if (scheduledAt) body.scheduled_at = scheduledAt;
+
+      const res = await fetch(`/api/content/${draftId}/publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDraft(data.draft as ContentDraft);
+      }
+      return res;
+    } catch {
+      // ignore
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  return { draft, isLoading, isSaving, isPublishing, updateDraft, publishDraft, refetch: fetchDraft };
 }
