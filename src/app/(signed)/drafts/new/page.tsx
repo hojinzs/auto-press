@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { useGenerationJob } from "@/hooks/useGenerationJob";
@@ -17,9 +17,25 @@ import {
   XCircle,
   Link2,
   PenTool,
+  AlertTriangle,
+  ExternalLink,
 } from "lucide-react";
 import Link from "next/link";
 import type { GenerationJobStatus } from "@/types/content";
+
+type DuplicateLevel = "duplicate" | "similar" | "pass";
+
+interface DuplicateItem {
+  title: string;
+  permalink: string;
+  similarity: number;
+  level: DuplicateLevel;
+}
+
+interface DuplicateCheckResult {
+  duplicates: DuplicateItem[];
+  level: DuplicateLevel;
+}
 
 interface SiteOption {
   id: string;
@@ -69,9 +85,54 @@ export default function NewDraftPage() {
   const [keywords, setKeywords] = useState<string[]>([]);
   const [targetLength, setTargetLength] = useState(1500);
 
+  // Duplicate check state
+  const [dupCheck, setDupCheck] = useState<DuplicateCheckResult | null>(null);
+  const [isDupChecking, setIsDupChecking] = useState(false);
+  const dupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const supabase = createClient();
   const { job, isActive, isStarting, error, startGeneration } =
     useGenerationJob(selectedSiteId);
+
+  // Duplicate check function
+  const checkDuplicate = useCallback(
+    async (topicValue: string) => {
+      if (!topicValue.trim() || !selectedSiteId) {
+        setDupCheck(null);
+        return;
+      }
+      setIsDupChecking(true);
+      try {
+        const res = await fetch("/api/content/check-duplicate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            credential_id: selectedSiteId,
+            topic: topicValue.trim(),
+          }),
+        });
+        if (res.ok) {
+          const data: DuplicateCheckResult = await res.json();
+          setDupCheck(data);
+        }
+      } catch {
+        // Silently ignore check failures
+      } finally {
+        setIsDupChecking(false);
+      }
+    },
+    [selectedSiteId],
+  );
+
+  // Debounced topic change handler
+  const handleTopicChange = (value: string) => {
+    setTopic(value);
+    setDupCheck(null);
+    if (dupTimerRef.current) clearTimeout(dupTimerRef.current);
+    if (value.trim()) {
+      dupTimerRef.current = setTimeout(() => checkDuplicate(value), 500);
+    }
+  };
 
   useEffect(() => {
     const fetchSites = async () => {
@@ -288,11 +349,80 @@ export default function NewDraftPage() {
             <input
               type="text"
               value={topic}
-              onChange={(e) => setTopic(e.target.value)}
+              onChange={(e) => handleTopicChange(e.target.value)}
+              onBlur={() => {
+                if (topic.trim() && !dupCheck && !isDupChecking) {
+                  checkDuplicate(topic);
+                }
+              }}
               placeholder="예: Next.js 14에서 서버 컴포넌트 활용하기"
               className="w-full bg-card border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               required
             />
+
+            {/* Duplicate check loading */}
+            {isDupChecking && (
+              <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                중복 여부를 확인하는 중...
+              </div>
+            )}
+
+            {/* Duplicate warning banner */}
+            {dupCheck?.level === "duplicate" && (
+              <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-4 space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-red-700">
+                  <XCircle className="h-4 w-4" />
+                  이미 유사한 글이 존재합니다. 다른 주제를 선택해 주세요.
+                </div>
+                <ul className="space-y-1">
+                  {dupCheck.duplicates.map((dup, i) => (
+                    <li key={i} className="flex items-center gap-2 text-xs text-red-600">
+                      <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                      <a
+                        href={dup.permalink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:no-underline truncate"
+                      >
+                        {dup.title}
+                      </a>
+                      <span className="text-red-400 flex-shrink-0">
+                        ({Math.round(dup.similarity * 100)}%)
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Similar warning banner */}
+            {dupCheck?.level === "similar" && (
+              <div className="mt-3 rounded-xl border border-yellow-200 bg-yellow-50 p-4 space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-yellow-700">
+                  <AlertTriangle className="h-4 w-4" />
+                  유사한 주제의 글이 있습니다. 차별화된 내용을 작성해 보세요.
+                </div>
+                <ul className="space-y-1">
+                  {dupCheck.duplicates.map((dup, i) => (
+                    <li key={i} className="flex items-center gap-2 text-xs text-yellow-700">
+                      <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                      <a
+                        href={dup.permalink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:no-underline truncate"
+                      >
+                        {dup.title}
+                      </a>
+                      <span className="text-yellow-500 flex-shrink-0">
+                        ({Math.round(dup.similarity * 100)}%)
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
 
           {/* Keywords */}
@@ -364,10 +494,10 @@ export default function NewDraftPage() {
 
           <button
             type="submit"
-            disabled={isStarting || !topic.trim()}
+            disabled={isStarting || !topic.trim() || dupCheck?.level === "duplicate"}
             className={cn(
               "w-full inline-flex items-center justify-center rounded-full py-3 text-sm font-medium transition-all shadow-lg",
-              isStarting || !topic.trim()
+              isStarting || !topic.trim() || dupCheck?.level === "duplicate"
                 ? "bg-muted text-muted-foreground cursor-not-allowed"
                 : "bg-primary text-primary-foreground hover:scale-[1.02] active:scale-95 shadow-primary/20",
             )}
