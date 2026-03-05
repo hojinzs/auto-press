@@ -1,32 +1,21 @@
-import { FileText, Zap, TrendingUp, PenTool, ArrowRight, CheckCircle2, AlertCircle, Wifi } from "lucide-react";
+"use client";
 
-// 가짜 데이터
-const drafts = [
-  {
-    id: 1,
-    title: "The Future of SEO: Beyond Keywords",
-    status: "review",
-    wordCount: 2340,
-    voiceMatch: 96,
-    updatedAt: "2시간 전",
-  },
-  {
-    id: 2,
-    title: "Q3 Marketing Trends Analysis",
-    status: "draft",
-    wordCount: 1820,
-    voiceMatch: 91,
-    updatedAt: "5시간 전",
-  },
-  {
-    id: 3,
-    title: "Sustainable Packaging Guide",
-    status: "review",
-    wordCount: 3100,
-    voiceMatch: 94,
-    updatedAt: "1일 전",
-  },
-];
+import { useEffect, useState } from "react";
+import { FileText, Zap, PenTool, ArrowRight, AlertCircle, Wifi, Loader2 } from "lucide-react";
+import Link from "next/link";
+import type { ContentDraft } from "@/types/content";
+
+const ACTIVE_DRAFTS_LIMIT = 5;
+
+function getRelativeTime(dateStr: string): string {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const diffMins = Math.floor(diffMs / 60_000);
+  const diffHours = Math.floor(diffMs / 3_600_000);
+  const diffDays = Math.floor(diffMs / 86_400_000);
+  if (diffMins < 60) return `${diffMins}분 전`;
+  if (diffHours < 24) return `${diffHours}시간 전`;
+  return `${diffDays}일 전`;
+}
 
 const connections = [
   { id: 1, name: "myblog.com", status: "healthy", lastSync: "20분 전" },
@@ -66,12 +55,20 @@ const stats = [
 ];
 
 const quickActions = [
-  { label: "New Draft", icon: PenTool, href: "#" },
+  { label: "New Draft", icon: PenTool, href: "/drafts/new" },
   { label: "Schedule Post", icon: FileText, href: "#" },
   { label: "Run Voice Calibration", icon: Zap, href: "#" },
 ];
 
 function StatusBadge({ status }: { status: string }) {
+  if (status === "published") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
+        <ArrowRight className="h-3 w-3" />
+        Published
+      </span>
+    );
+  }
   if (status === "review") {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
@@ -106,6 +103,33 @@ function ConnectionStatus({ status }: { status: string }) {
 }
 
 export default function DashboardPage() {
+  const [activeDrafts, setActiveDrafts] = useState<ContentDraft[]>([]);
+  const [isLoadingDrafts, setIsLoadingDrafts] = useState(true);
+  const [draftError, setDraftError] = useState(false);
+
+  useEffect(() => {
+    const fetchDrafts = async () => {
+      setIsLoadingDrafts(true);
+      setDraftError(false);
+      try {
+        const res = await fetch("/api/content/drafts");
+        const data = await res.json();
+        if (res.ok) {
+          setActiveDrafts((data.drafts ?? []).slice(0, ACTIVE_DRAFTS_LIMIT));
+        } else {
+          setDraftError(true);
+        }
+      } catch {
+        setDraftError(true);
+      } finally {
+        setIsLoadingDrafts(false);
+      }
+    };
+    fetchDrafts();
+  }, []);
+
+  const draftCount = activeDrafts.length;
+
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
       {/* Header / Greeting */}
@@ -114,13 +138,20 @@ export default function DashboardPage() {
           The Desk
         </h1>
         <p className="text-muted-foreground">
-          Good morning, Editor. You have{" "}
-          <span className="font-semibold text-foreground">3 drafts</span>{" "}
-          awaiting review and{" "}
-          <span className="font-semibold text-foreground">
-            5 posts scheduled
-          </span>{" "}
-          for this week.
+          Good morning, Editor.{" "}
+          {isLoadingDrafts ? (
+            <span className="font-semibold text-foreground">…</span>
+          ) : draftCount > 0 ? (
+            <>
+              You have{" "}
+              <span className="font-semibold text-foreground">
+                {draftCount} draft{draftCount !== 1 ? "s" : ""}
+              </span>{" "}
+              in progress.
+            </>
+          ) : (
+            <>No active drafts yet — start one below.</>
+          )}
         </p>
         <p className="text-sm text-muted-foreground">
           Your system is{" "}
@@ -160,30 +191,59 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 rounded-xl border bg-card shadow-sm">
           <div className="flex items-center justify-between p-5 border-b">
             <h2 className="font-semibold text-lg">Active Drafts</h2>
-            <button className="text-sm text-primary hover:underline flex items-center gap-1">
+            <Link
+              href="/drafts"
+              className="text-sm text-primary hover:underline flex items-center gap-1"
+            >
               View all <ArrowRight className="h-3.5 w-3.5" />
-            </button>
+            </Link>
           </div>
-          <div className="divide-y">
-            {drafts.map((draft) => (
-              <div
-                key={draft.id}
-                className="flex items-center justify-between p-5 hover:bg-secondary/30 transition-colors cursor-pointer"
-              >
-                <div className="space-y-1 min-w-0 flex-1">
-                  <p className="font-medium truncate">{draft.title}</p>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>{draft.wordCount.toLocaleString()} words</span>
-                    <span>•</span>
-                    <span>Voice: {draft.voiceMatch}%</span>
-                    <span>•</span>
-                    <span>{draft.updatedAt}</span>
+          {isLoadingDrafts ? (
+            <div className="flex items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-5 w-5 animate-spin mr-2" />
+              <span className="text-sm">Loading drafts…</span>
+            </div>
+          ) : draftError ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center px-6">
+              <AlertCircle className="h-10 w-10 text-destructive/40 mb-3" />
+              <p className="text-sm font-medium">Failed to load drafts</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Please refresh the page to try again.
+              </p>
+            </div>
+          ) : activeDrafts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center px-6">
+              <FileText className="h-10 w-10 text-muted-foreground/20 mb-3" />
+              <p className="text-sm font-medium">No active drafts</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Create a new draft to get started.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {activeDrafts.map((draft) => (
+                <Link
+                  key={draft.id}
+                  href={`/drafts/${draft.id}`}
+                  className="flex items-center justify-between p-5 hover:bg-secondary/30 transition-colors"
+                >
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <p className="font-medium truncate">
+                      {draft.title || "제목 없음"}
+                    </p>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      {draft.target_length > 0 && (
+                        <span>{draft.target_length.toLocaleString()} words</span>
+                      )}
+                      {draft.target_length > 0 && <span>•</span>}
+                      <span>{getRelativeTime(draft.updated_at)}</span>
+                    </div>
                   </div>
-                </div>
-                <StatusBadge status={draft.status} />
-              </div>
-            ))}
-          </div>
+                  <StatusBadge status={draft.status} />
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right Column */}
@@ -221,7 +281,7 @@ export default function DashboardPage() {
             </div>
             <div className="p-4 space-y-2">
               {quickActions.map((action) => (
-                <a
+                <Link
                   key={action.label}
                   href={action.href}
                   className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-secondary/50 transition-colors"
@@ -229,7 +289,7 @@ export default function DashboardPage() {
                   <action.icon className="h-4 w-4 text-muted-foreground" />
                   {action.label}
                   <ArrowRight className="h-3.5 w-3.5 ml-auto text-muted-foreground" />
-                </a>
+                </Link>
               ))}
             </div>
           </div>
