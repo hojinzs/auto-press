@@ -3,8 +3,12 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { AddSiteForm } from "@/components/AddSiteForm";
-import { Loader2, Plus, Globe, Trash2, ShieldCheck, AlertCircle, RefreshCcw, ExternalLink } from "lucide-react";
+import { Loader2, Plus, Globe, Trash2, ShieldCheck, AlertCircle, RefreshCcw, ExternalLink, Database } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { CollectionProgress } from "@/components/CollectionProgress";
+import { SiteProfileCard } from "@/components/SiteProfileCard";
+import { useCollectionJob } from "@/hooks/useCollectionJob";
+import { useSiteProfile } from "@/hooks/useSiteProfile";
 
 interface WordPressConnection {
   id: string;
@@ -13,6 +17,56 @@ interface WordPressConnection {
   wp_username: string;
   status: "active" | "error";
   created_at: string;
+}
+
+function SiteCollectionPanel({ credentialId }: { credentialId: string }) {
+  const { job, isActive, isStarting, error, startCollection } = useCollectionJob(credentialId);
+  const { profile, isLoading: profileLoading } = useSiteProfile(credentialId);
+
+  return (
+    <div className="mt-4 pt-4 border-t space-y-4">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={startCollection}
+          disabled={isActive || isStarting}
+          className={cn(
+            "inline-flex items-center justify-center rounded-lg text-xs font-medium px-3 py-1.5 transition-all",
+            isActive || isStarting
+              ? "bg-muted text-muted-foreground cursor-not-allowed"
+              : "bg-primary/10 text-primary hover:bg-primary/20"
+          )}
+        >
+          {isStarting ? (
+            <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+          ) : (
+            <Database className="mr-1.5 h-3 w-3" />
+          )}
+          {job ? "데이터 재수집" : "데이터 수집"}
+        </button>
+        {error && (
+          <span className="text-xs text-destructive">{error}</span>
+        )}
+      </div>
+
+      {job && isActive && <CollectionProgress job={job} />}
+
+      {job && job.status === "completed" && !isActive && (
+        <p className="text-xs text-green-600 flex items-center gap-1">
+          <Database className="h-3 w-3" />
+          마지막 수집: {new Date(job.completed_at!).toLocaleString()}
+        </p>
+      )}
+
+      {job && job.status === "failed" && !isActive && (
+        <p className="text-xs text-destructive flex items-center gap-1">
+          <AlertCircle className="h-3 w-3" />
+          {job.error_message || "수집 실패"}
+        </p>
+      )}
+
+      {profile && <SiteProfileCard profile={profile} />}
+    </div>
+  );
 }
 
 export default function ConnectionsPage() {
@@ -119,54 +173,57 @@ export default function ConnectionsPage() {
         ) : (
           <div className="grid gap-4">
             {connections.map((site) => (
-              <div 
-                key={site.id} 
-                className="group flex flex-col sm:flex-row sm:items-center justify-between p-5 bg-card border rounded-2xl transition-all hover:shadow-md hover:border-primary/20"
+              <div
+                key={site.id}
+                className="group p-5 bg-card border rounded-2xl transition-all hover:shadow-md hover:border-primary/20"
               >
-                <div className="flex items-center gap-4">
-                  <div className={cn(
-                    "h-12 w-12 rounded-xl flex items-center justify-center",
-                    site.status === "active" ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
-                  )}>
-                    <Globe className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg flex items-center gap-2">
-                        {site.site_name}
-                        {site.status === "active" ? (
-                             <span className="flex items-center text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tight">
-                                <span className="h-1 w-1 bg-green-600 rounded-full mr-1 animate-pulse" />
-                                Connected
-                             </span>
-                        ) : (
-                            <span className="flex items-center text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tight">
-                                Error
-                             </span>
-                        )}
-                    </h3>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                      <ExternalLink className="h-3 w-3" />
-                      <a href={site.site_url} target="_blank" className="hover:underline">{site.site_url}</a>
-                    </p>
-                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground/80">
-                         <span className="flex items-center gap-1">
-                            <ShieldCheck className="h-3 w-3" /> {site.wp_username}
-                         </span>
-                         <span className="text-muted-foreground/20">|</span>
-                         <span>연동일: {new Date(site.created_at).toLocaleDateString()}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className={cn(
+                      "h-12 w-12 rounded-xl flex items-center justify-center",
+                      site.status === "active" ? "bg-green-50 text-green-600" : "bg-red-50 text-red-600"
+                    )}>
+                      <Globe className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-lg flex items-center gap-2">
+                          {site.site_name}
+                          {site.status === "active" ? (
+                               <span className="flex items-center text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tight">
+                                  <span className="h-1 w-1 bg-green-600 rounded-full mr-1 animate-pulse" />
+                                  Connected
+                               </span>
+                          ) : (
+                              <span className="flex items-center text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-tight">
+                                  Error
+                               </span>
+                          )}
+                      </h3>
+                      <p className="text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                        <ExternalLink className="h-3 w-3" />
+                        <a href={site.site_url} target="_blank" className="hover:underline">{site.site_url}</a>
+                      </p>
+                      <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground/80">
+                           <span className="flex items-center gap-1">
+                              <ShieldCheck className="h-3 w-3" /> {site.wp_username}
+                           </span>
+                           <span className="text-muted-foreground/20">|</span>
+                           <span>연동일: {new Date(site.created_at).toLocaleDateString()}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-2 mt-4 sm:mt-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                   <button 
-                    onClick={() => handleDelete(site.id)}
-                    className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
-                    title="사이트 연동 해제"
-                   >
-                    <Trash2 className="h-5 w-5" />
-                   </button>
+                  <div className="flex items-center gap-2 mt-4 sm:mt-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                     <button
+                      onClick={() => handleDelete(site.id)}
+                      className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+                      title="사이트 연동 해제"
+                     >
+                      <Trash2 className="h-5 w-5" />
+                     </button>
+                  </div>
                 </div>
+                <SiteCollectionPanel credentialId={site.id} />
               </div>
             ))}
           </div>

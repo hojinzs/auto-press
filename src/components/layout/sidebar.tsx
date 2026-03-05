@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, Users, Calendar, Settings, Globe } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, Settings, Globe, FileText } from "lucide-react";
 
 export function Sidebar() {
   return (
@@ -18,11 +18,18 @@ export function Sidebar() {
           The Desk
         </Link>
         <Link
-          href="#"
+          href="/voice-profile"
           className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary/50 hover:text-secondary-foreground transition-colors"
         >
           <Users className="h-4 w-4" />
           Voice Profile
+        </Link>
+        <Link
+          href="/drafts"
+          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-secondary/50 hover:text-secondary-foreground transition-colors"
+        >
+          <FileText className="h-4 w-4" />
+          Content Drafts
         </Link>
         <Link
           href="#"
