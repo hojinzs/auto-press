@@ -1,82 +1,37 @@
-import { FileText, Zap, TrendingUp, PenTool, ArrowRight, CheckCircle2, AlertCircle, Wifi } from "lucide-react";
+import { FileText, Zap, PenTool, ArrowRight, CheckCircle2, AlertCircle, Wifi, Globe, Plus } from "lucide-react";
+import { createClient } from "@/utils/supabase/server";
+import Link from "next/link";
+import type { ContentDraft } from "@/types/content";
 
-// 가짜 데이터
-const drafts = [
-  {
-    id: 1,
-    title: "The Future of SEO: Beyond Keywords",
-    status: "review",
-    wordCount: 2340,
-    voiceMatch: 96,
-    updatedAt: "2시간 전",
-  },
-  {
-    id: 2,
-    title: "Q3 Marketing Trends Analysis",
-    status: "draft",
-    wordCount: 1820,
-    voiceMatch: 91,
-    updatedAt: "5시간 전",
-  },
-  {
-    id: 3,
-    title: "Sustainable Packaging Guide",
-    status: "review",
-    wordCount: 3100,
-    voiceMatch: 94,
-    updatedAt: "1일 전",
-  },
-];
+function formatRelativeDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHour = Math.floor(diffMs / 3600000);
+  const diffDay = Math.floor(diffMs / 86400000);
 
-const connections = [
-  { id: 1, name: "myblog.com", status: "healthy", lastSync: "20분 전" },
-  { id: 2, name: "techinsight.kr", status: "healthy", lastSync: "1시간 전" },
-  { id: 3, name: "marketing.io", status: "warning", lastSync: "3시간 전" },
-];
-
-const stats = [
-  {
-    label: "WORDS GENERATED",
-    value: "12.4k",
-    change: "+12%",
-    changeLabel: "vs last week",
-    positive: true,
-  },
-  {
-    label: "VOICE CONSISTENCY",
-    value: "94%",
-    change: "+2%",
-    changeLabel: "vs last month",
-    positive: true,
-  },
-  {
-    label: "POSTS PUBLISHED",
-    value: "28",
-    change: "+5",
-    changeLabel: "this week",
-    positive: true,
-  },
-  {
-    label: "SEO SCORE AVG",
-    value: "87",
-    change: "+3",
-    changeLabel: "vs last week",
-    positive: true,
-  },
-];
-
-const quickActions = [
-  { label: "New Draft", icon: PenTool, href: "#" },
-  { label: "Schedule Post", icon: FileText, href: "#" },
-  { label: "Run Voice Calibration", icon: Zap, href: "#" },
-];
+  if (diffMin < 1) return "방금 전";
+  if (diffMin < 60) return `${diffMin}분 전`;
+  if (diffHour < 24) return `${diffHour}시간 전`;
+  if (diffDay < 7) return `${diffDay}일 전`;
+  return date.toLocaleDateString();
+}
 
 function StatusBadge({ status }: { status: string }) {
-  if (status === "review") {
+  if (status === "published") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
-        <AlertCircle className="h-3 w-3" />
-        Review
+      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
+        <CheckCircle2 className="h-3 w-3" />
+        Published
+      </span>
+    );
+  }
+  if (status === "archived") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-600">
+        <FileText className="h-3 w-3" />
+        Archived
       </span>
     );
   }
@@ -89,7 +44,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function ConnectionStatus({ status }: { status: string }) {
-  if (status === "healthy") {
+  if (status === "active") {
     return (
       <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-600">
         <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -100,12 +55,56 @@ function ConnectionStatus({ status }: { status: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-600">
       <span className="h-2 w-2 rounded-full bg-amber-500" />
-      Slow
+      Error
     </span>
   );
 }
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const supabase = await createClient();
+
+  // Fetch all data in parallel
+  const [draftsResult, publishedResult, connectionsResult, recentDraftsResult] =
+    await Promise.all([
+      supabase
+        .from("content_drafts")
+        .select("*", { count: "exact", head: true }),
+      supabase
+        .from("content_drafts")
+        .select("*", { count: "exact", head: true })
+        .eq("status", "published"),
+      supabase
+        .from("wp_credentials")
+        .select("id, site_name, site_url, status, created_at")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("content_drafts")
+        .select("id, title, status, topic, keywords, created_at, updated_at")
+        .order("created_at", { ascending: false })
+        .limit(5),
+    ]);
+
+  const totalDrafts = draftsResult.count ?? 0;
+  const publishedCount = publishedResult.count ?? 0;
+  const connections = connectionsResult.data ?? [];
+  const recentDrafts = (recentDraftsResult.data ?? []) as Pick<
+    ContentDraft,
+    "id" | "title" | "status" | "topic" | "keywords" | "created_at" | "updated_at"
+  >[];
+  const siteCount = connections.length;
+
+  const stats = [
+    { label: "TOTAL DRAFTS", value: totalDrafts.toString() },
+    { label: "PUBLISHED", value: publishedCount.toString() },
+    { label: "CONNECTED SITES", value: siteCount.toString() },
+  ];
+
+  const quickActions = [
+    { label: "New Draft", icon: PenTool, href: "/drafts/new" },
+    { label: "All Drafts", icon: FileText, href: "/drafts" },
+    { label: "Site Connections", icon: Zap, href: "/settings/connections" },
+  ];
+
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
       {/* Header / Greeting */}
@@ -114,24 +113,34 @@ export default function DashboardPage() {
           The Desk
         </h1>
         <p className="text-muted-foreground">
-          Good morning, Editor. You have{" "}
-          <span className="font-semibold text-foreground">3 drafts</span>{" "}
-          awaiting review and{" "}
-          <span className="font-semibold text-foreground">
-            5 posts scheduled
-          </span>{" "}
-          for this week.
+          {totalDrafts > 0 ? (
+            <>
+              You have{" "}
+              <span className="font-semibold text-foreground">
+                {totalDrafts} draft{totalDrafts !== 1 ? "s" : ""}
+              </span>{" "}
+              and{" "}
+              <span className="font-semibold text-foreground">
+                {publishedCount} published post{publishedCount !== 1 ? "s" : ""}
+              </span>
+              .
+            </>
+          ) : (
+            <>Get started by creating your first draft.</>
+          )}
         </p>
-        <p className="text-sm text-muted-foreground">
-          Your system is{" "}
-          <span className="text-emerald-600 font-medium">98% calibrated</span>{" "}
-          to the brand voice. The latest vector indexing completed 20 minutes
-          ago.
-        </p>
+        {siteCount > 0 && (
+          <p className="text-sm text-muted-foreground">
+            <span className="text-emerald-600 font-medium">
+              {siteCount} site{siteCount !== 1 ? "s" : ""}
+            </span>{" "}
+            connected.
+          </p>
+        )}
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {stats.map((stat) => (
           <div
             key={stat.label}
@@ -141,49 +150,70 @@ export default function DashboardPage() {
               {stat.label}
             </p>
             <p className="mt-2 text-3xl font-bold tracking-tight">{stat.value}</p>
-            <p className="mt-1 flex items-center gap-1 text-xs">
-              <span
-                className={
-                  stat.positive ? "text-emerald-600" : "text-red-600"
-                }
-              >
-                {stat.change}
-              </span>
-              <span className="text-muted-foreground">{stat.changeLabel}</span>
-            </p>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Active Drafts */}
+        {/* Recent Drafts */}
         <div className="lg:col-span-2 rounded-xl border bg-card shadow-sm">
           <div className="flex items-center justify-between p-5 border-b">
-            <h2 className="font-semibold text-lg">Active Drafts</h2>
-            <button className="text-sm text-primary hover:underline flex items-center gap-1">
-              View all <ArrowRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <div className="divide-y">
-            {drafts.map((draft) => (
-              <div
-                key={draft.id}
-                className="flex items-center justify-between p-5 hover:bg-secondary/30 transition-colors cursor-pointer"
+            <h2 className="font-semibold text-lg">Recent Drafts</h2>
+            {recentDrafts.length > 0 && (
+              <Link
+                href="/drafts"
+                className="text-sm text-primary hover:underline flex items-center gap-1"
               >
-                <div className="space-y-1 min-w-0 flex-1">
-                  <p className="font-medium truncate">{draft.title}</p>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>{draft.wordCount.toLocaleString()} words</span>
-                    <span>•</span>
-                    <span>Voice: {draft.voiceMatch}%</span>
-                    <span>•</span>
-                    <span>{draft.updatedAt}</span>
-                  </div>
-                </div>
-                <StatusBadge status={draft.status} />
-              </div>
-            ))}
+                View all <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            )}
           </div>
+          {recentDrafts.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+              <FileText className="h-10 w-10 text-muted-foreground/20 mb-3" />
+              <p className="text-sm font-medium text-muted-foreground">
+                아직 초안이 없습니다
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                AI를 활용해 첫 번째 블로그 초안을 생성해보세요.
+              </p>
+              <Link
+                href="/drafts/new"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-4 py-2 text-xs font-medium transition-all hover:scale-105 active:scale-95"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                New Draft
+              </Link>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {recentDrafts.map((draft) => (
+                <Link
+                  key={draft.id}
+                  href={`/drafts/${draft.id}`}
+                  className="flex items-center justify-between p-5 hover:bg-secondary/30 transition-colors cursor-pointer"
+                >
+                  <div className="space-y-1 min-w-0 flex-1">
+                    <p className="font-medium truncate">
+                      {draft.title || "제목 없음"}
+                    </p>
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                      {draft.topic && (
+                        <>
+                          <span className="truncate max-w-[200px]">
+                            {draft.topic}
+                          </span>
+                          <span>·</span>
+                        </>
+                      )}
+                      <span>{formatRelativeDate(draft.created_at)}</span>
+                    </div>
+                  </div>
+                  <StatusBadge status={draft.status} />
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right Column */}
@@ -196,22 +226,37 @@ export default function DashboardPage() {
                 Connection Health
               </h2>
             </div>
-            <div className="divide-y">
-              {connections.map((conn) => (
-                <div
-                  key={conn.id}
-                  className="flex items-center justify-between p-4"
+            {connections.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 px-6 text-center">
+                <Globe className="h-8 w-8 text-muted-foreground/20 mb-2" />
+                <p className="text-sm font-medium text-muted-foreground">
+                  연동된 사이트가 없습니다
+                </p>
+                <Link
+                  href="/settings/connections"
+                  className="mt-3 text-xs text-primary hover:underline"
                 >
-                  <div className="space-y-0.5">
-                    <p className="text-sm font-medium">{conn.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Last sync: {conn.lastSync}
-                    </p>
+                  사이트 연동하기
+                </Link>
+              </div>
+            ) : (
+              <div className="divide-y">
+                {connections.map((conn) => (
+                  <div
+                    key={conn.id}
+                    className="flex items-center justify-between p-4"
+                  >
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-medium">{conn.site_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {conn.site_url}
+                      </p>
+                    </div>
+                    <ConnectionStatus status={conn.status} />
                   </div>
-                  <ConnectionStatus status={conn.status} />
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Quick Actions */}
@@ -221,7 +266,7 @@ export default function DashboardPage() {
             </div>
             <div className="p-4 space-y-2">
               {quickActions.map((action) => (
-                <a
+                <Link
                   key={action.label}
                   href={action.href}
                   className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-secondary/50 transition-colors"
@@ -229,7 +274,7 @@ export default function DashboardPage() {
                   <action.icon className="h-4 w-4 text-muted-foreground" />
                   {action.label}
                   <ArrowRight className="h-3.5 w-3.5 ml-auto text-muted-foreground" />
-                </a>
+                </Link>
               ))}
             </div>
           </div>
