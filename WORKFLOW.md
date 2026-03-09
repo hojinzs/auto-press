@@ -8,19 +8,17 @@ lifecycle:
   state_field: Status
   planning_active:
     - Todo
-    - Needs Plan
   human_review:
-    - Human Review
+    - Plan Review
   implementation_active:
-    - Approved
-    - Ready to Implement
+    - In Progress
   awaiting_merge:
-    - Await Merge
+    - In Review
   completed:
     - Done
   transitions:
-    planning_complete: Human Review
-    implementation_complete: Await Merge
+    planning_complete: Plan Review
+    implementation_complete: In Review
     merge_complete: Done
 
 runtime:
