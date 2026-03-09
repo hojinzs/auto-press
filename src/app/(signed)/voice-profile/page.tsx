@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { useCollectionJob } from "@/hooks/useCollectionJob";
 import { useSiteProfile } from "@/hooks/useSiteProfile";
@@ -18,8 +18,17 @@ import {
   Database,
   ChevronDown,
   AlertCircle,
+  Pencil,
+  Save,
+  X,
+  Plus,
+  Trash2,
 } from "lucide-react";
-import type { ProfileData } from "@/types/profiling";
+import {
+  isInsufficientProfileData,
+  normalizeProfileData,
+  type ProfileData,
+} from "@/types/profiling";
 
 interface SiteOption {
   id: string;
@@ -28,10 +37,58 @@ interface SiteOption {
   status: string;
 }
 
+function createEmptyProfileData(): ProfileData {
+  return {
+    brand_voice: {
+      tone: "",
+      style: "",
+      characteristics: [],
+    },
+    topics: [],
+    reader_persona: {
+      demographics: "",
+      interests: [],
+      expertise_level: "",
+    },
+    content_patterns: {
+      average_length: 0,
+      common_structures: [],
+      media_usage: "",
+    },
+  };
+}
+
+function cloneProfileData(profileData: ProfileData): ProfileData {
+  return {
+    brand_voice: {
+      tone: profileData.brand_voice.tone,
+      style: profileData.brand_voice.style,
+      characteristics: [...profileData.brand_voice.characteristics],
+    },
+    topics: profileData.topics.map((topic) => ({ ...topic })),
+    reader_persona: {
+      demographics: profileData.reader_persona.demographics,
+      interests: [...profileData.reader_persona.interests],
+      expertise_level: profileData.reader_persona.expertise_level,
+    },
+    content_patterns: {
+      average_length: profileData.content_patterns.average_length,
+      common_structures: [...profileData.content_patterns.common_structures],
+      media_usage: profileData.content_patterns.media_usage,
+    },
+  };
+}
+
+function parseListInput(value: string): string[] {
+  return value
+    .split(/[\n,]/)
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
+}
+
 function VoiceProfileDetail({ profileData }: { profileData: ProfileData }) {
   return (
     <div className="space-y-6">
-      {/* Brand Voice */}
       {profileData.brand_voice && (
         <div className="bg-card border rounded-2xl p-6 space-y-4">
           <h3 className="flex items-center gap-2 text-lg font-semibold">
@@ -41,14 +98,14 @@ function VoiceProfileDetail({ profileData }: { profileData: ProfileData }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">톤</p>
-              <p className="text-sm">{profileData.brand_voice.tone}</p>
+              <p className="text-sm">{profileData.brand_voice.tone || "-"}</p>
             </div>
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">스타일</p>
-              <p className="text-sm">{profileData.brand_voice.style}</p>
+              <p className="text-sm">{profileData.brand_voice.style || "-"}</p>
             </div>
           </div>
-          {profileData.brand_voice.characteristics?.length > 0 && (
+          {profileData.brand_voice.characteristics.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">특성</p>
               <div className="flex flex-wrap gap-2">
@@ -66,8 +123,7 @@ function VoiceProfileDetail({ profileData }: { profileData: ProfileData }) {
         </div>
       )}
 
-      {/* Topics */}
-      {profileData.topics && profileData.topics.length > 0 && (
+      {profileData.topics.length > 0 && (
         <div className="bg-card border rounded-2xl p-6 space-y-4">
           <h3 className="flex items-center gap-2 text-lg font-semibold">
             <Tag className="h-5 w-5 text-primary" />
@@ -97,7 +153,6 @@ function VoiceProfileDetail({ profileData }: { profileData: ProfileData }) {
         </div>
       )}
 
-      {/* Reader Persona */}
       {profileData.reader_persona && (
         <div className="bg-card border rounded-2xl p-6 space-y-4">
           <h3 className="flex items-center gap-2 text-lg font-semibold">
@@ -107,14 +162,14 @@ function VoiceProfileDetail({ profileData }: { profileData: ProfileData }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">타겟 독자</p>
-              <p className="text-sm">{profileData.reader_persona.demographics}</p>
+              <p className="text-sm">{profileData.reader_persona.demographics || "-"}</p>
             </div>
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">전문성 수준</p>
-              <p className="text-sm">{profileData.reader_persona.expertise_level}</p>
+              <p className="text-sm">{profileData.reader_persona.expertise_level || "-"}</p>
             </div>
           </div>
-          {profileData.reader_persona.interests?.length > 0 && (
+          {profileData.reader_persona.interests.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">관심사</p>
               <div className="flex flex-wrap gap-2">
@@ -132,7 +187,6 @@ function VoiceProfileDetail({ profileData }: { profileData: ProfileData }) {
         </div>
       )}
 
-      {/* Content Patterns */}
       {profileData.content_patterns && (
         <div className="bg-card border rounded-2xl p-6 space-y-4">
           <h3 className="flex items-center gap-2 text-lg font-semibold">
@@ -142,14 +196,14 @@ function VoiceProfileDetail({ profileData }: { profileData: ProfileData }) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">평균 길이</p>
-              <p className="text-sm">{profileData.content_patterns.average_length?.toLocaleString()}자</p>
+              <p className="text-sm">{profileData.content_patterns.average_length.toLocaleString()}자</p>
             </div>
             <div className="space-y-1">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">미디어 사용</p>
-              <p className="text-sm">{profileData.content_patterns.media_usage}</p>
+              <p className="text-sm">{profileData.content_patterns.media_usage || "-"}</p>
             </div>
           </div>
-          {profileData.content_patterns.common_structures?.length > 0 && (
+          {profileData.content_patterns.common_structures.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">구조 유형</p>
               <div className="flex flex-wrap gap-2">
@@ -170,15 +224,321 @@ function VoiceProfileDetail({ profileData }: { profileData: ProfileData }) {
   );
 }
 
+function VoiceProfileEditor({
+  profileData,
+  onChange,
+}: {
+  profileData: ProfileData;
+  onChange: (profile: ProfileData) => void;
+}) {
+  const inputClass =
+    "w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary";
+  const textareaClass = `${inputClass} min-h-20`;
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-card border rounded-2xl p-6 space-y-4">
+        <h3 className="flex items-center gap-2 text-lg font-semibold">
+          <MessageSquare className="h-5 w-5 text-primary" />
+          브랜드 보이스
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">톤</label>
+            <input
+              value={profileData.brand_voice.tone}
+              onChange={(e) =>
+                onChange({
+                  ...profileData,
+                  brand_voice: {
+                    ...profileData.brand_voice,
+                    tone: e.target.value,
+                  },
+                })
+              }
+              className={inputClass}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">스타일</label>
+            <input
+              value={profileData.brand_voice.style}
+              onChange={(e) =>
+                onChange({
+                  ...profileData,
+                  brand_voice: {
+                    ...profileData.brand_voice,
+                    style: e.target.value,
+                  },
+                })
+              }
+              className={inputClass}
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            특성 (쉼표/줄바꿈 구분)
+          </label>
+          <textarea
+            value={profileData.brand_voice.characteristics.join(", ")}
+            onChange={(e) =>
+              onChange({
+                ...profileData,
+                brand_voice: {
+                  ...profileData.brand_voice,
+                  characteristics: parseListInput(e.target.value),
+                },
+              })
+            }
+            className={textareaClass}
+          />
+        </div>
+      </div>
+
+      <div className="bg-card border rounded-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="flex items-center gap-2 text-lg font-semibold">
+            <Tag className="h-5 w-5 text-primary" />
+            주요 주제
+          </h3>
+          <button
+            onClick={() =>
+              onChange({
+                ...profileData,
+                topics: [
+                  ...profileData.topics,
+                  { name: "", frequency: 0.1, description: "" },
+                ],
+              })
+            }
+            className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs hover:bg-muted"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            주제 추가
+          </button>
+        </div>
+        {profileData.topics.length === 0 ? (
+          <p className="text-sm text-muted-foreground">주제를 추가해 주세요.</p>
+        ) : (
+          <div className="space-y-3">
+            {profileData.topics.map((topic, index) => (
+              <div key={index} className="border rounded-xl p-4 space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                  <div className="sm:col-span-5 space-y-2">
+                    <label className="text-xs text-muted-foreground">주제명</label>
+                    <input
+                      value={topic.name}
+                      onChange={(e) => {
+                        const nextTopics = [...profileData.topics];
+                        nextTopics[index] = { ...topic, name: e.target.value };
+                        onChange({ ...profileData, topics: nextTopics });
+                      }}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="sm:col-span-3 space-y-2">
+                    <label className="text-xs text-muted-foreground">빈도 (0~1)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={1}
+                      step={0.01}
+                      value={topic.frequency}
+                      onChange={(e) => {
+                        const nextTopics = [...profileData.topics];
+                        const nextFrequency = Number(e.target.value);
+                        nextTopics[index] = {
+                          ...topic,
+                          frequency: Number.isFinite(nextFrequency) ? nextFrequency : 0,
+                        };
+                        onChange({ ...profileData, topics: nextTopics });
+                      }}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="sm:col-span-3 space-y-2">
+                    <label className="text-xs text-muted-foreground">설명</label>
+                    <input
+                      value={topic.description}
+                      onChange={(e) => {
+                        const nextTopics = [...profileData.topics];
+                        nextTopics[index] = {
+                          ...topic,
+                          description: e.target.value,
+                        };
+                        onChange({ ...profileData, topics: nextTopics });
+                      }}
+                      className={inputClass}
+                    />
+                  </div>
+                  <div className="sm:col-span-1 flex justify-end">
+                    <button
+                      onClick={() => {
+                        const nextTopics = profileData.topics.filter((_, i) => i !== index);
+                        onChange({ ...profileData, topics: nextTopics });
+                      }}
+                      className="inline-flex items-center justify-center rounded-lg border p-2 text-muted-foreground hover:text-destructive hover:border-destructive/30"
+                      aria-label="주제 삭제"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-card border rounded-2xl p-6 space-y-4">
+        <h3 className="flex items-center gap-2 text-lg font-semibold">
+          <Users className="h-5 w-5 text-primary" />
+          독자 페르소나
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">타겟 독자</label>
+            <input
+              value={profileData.reader_persona.demographics}
+              onChange={(e) =>
+                onChange({
+                  ...profileData,
+                  reader_persona: {
+                    ...profileData.reader_persona,
+                    demographics: e.target.value,
+                  },
+                })
+              }
+              className={inputClass}
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">전문성 수준</label>
+            <input
+              value={profileData.reader_persona.expertise_level}
+              onChange={(e) =>
+                onChange({
+                  ...profileData,
+                  reader_persona: {
+                    ...profileData.reader_persona,
+                    expertise_level: e.target.value,
+                  },
+                })
+              }
+              className={inputClass}
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            관심사 (쉼표/줄바꿈 구분)
+          </label>
+          <textarea
+            value={profileData.reader_persona.interests.join(", ")}
+            onChange={(e) =>
+              onChange({
+                ...profileData,
+                reader_persona: {
+                  ...profileData.reader_persona,
+                  interests: parseListInput(e.target.value),
+                },
+              })
+            }
+            className={textareaClass}
+          />
+        </div>
+      </div>
+
+      <div className="bg-card border rounded-2xl p-6 space-y-4">
+        <h3 className="flex items-center gap-2 text-lg font-semibold">
+          <BarChart3 className="h-5 w-5 text-primary" />
+          콘텐츠 패턴
+        </h3>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">평균 길이</label>
+            <input
+              type="number"
+              min={0}
+              value={profileData.content_patterns.average_length}
+              onChange={(e) =>
+                onChange({
+                  ...profileData,
+                  content_patterns: {
+                    ...profileData.content_patterns,
+                    average_length: Math.max(0, Number(e.target.value) || 0),
+                  },
+                })
+              }
+              className={inputClass}
+            />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">미디어 사용</label>
+            <input
+              value={profileData.content_patterns.media_usage}
+              onChange={(e) =>
+                onChange({
+                  ...profileData,
+                  content_patterns: {
+                    ...profileData.content_patterns,
+                    media_usage: e.target.value,
+                  },
+                })
+              }
+              className={inputClass}
+            />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            구조 유형 (쉼표/줄바꿈 구분)
+          </label>
+          <textarea
+            value={profileData.content_patterns.common_structures.join(", ")}
+            onChange={(e) =>
+              onChange({
+                ...profileData,
+                content_patterns: {
+                  ...profileData.content_patterns,
+                  common_structures: parseListInput(e.target.value),
+                },
+              })
+            }
+            className={textareaClass}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function VoiceProfilePage() {
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
   const [isLoadingSites, setIsLoadingSites] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
+  const [editableProfileData, setEditableProfileData] =
+    useState<ProfileData>(createEmptyProfileData());
 
   const supabase = createClient();
 
-  const { profile, isLoading: profileLoading } = useSiteProfile(selectedSiteId);
-  const { job, isActive, isStarting, error: collectionError, startCollection } = useCollectionJob(selectedSiteId);
+  const {
+    profile,
+    isLoading: profileLoading,
+    refetch: refetchProfile,
+  } = useSiteProfile(selectedSiteId);
+  const {
+    job,
+    isActive,
+    isStarting,
+    error: collectionError,
+    startCollection,
+  } = useCollectionJob(selectedSiteId);
 
   useEffect(() => {
     const fetchSites = async () => {
@@ -197,17 +557,76 @@ export default function VoiceProfilePage() {
     };
 
     fetchSites();
-  }, []);
+  }, [supabase]);
 
-  const profileDataRaw = profile?.profile_data as unknown as Record<string, unknown> | undefined;
-  const isInsufficientData =
-    profile &&
-    profileDataRaw &&
-    "status" in profileDataRaw &&
-    profileDataRaw.status === "insufficient_data";
+  const profileDataRaw = profile?.profile_data;
+  const isInsufficientData = isInsufficientProfileData(profileDataRaw);
+  const hasProfile = Boolean(profile && !isInsufficientData);
 
-  const hasProfile = profile && !isInsufficientData;
+  const normalizedProfileData = useMemo(() => {
+    if (!hasProfile) return null;
+    return normalizeProfileData(profileDataRaw);
+  }, [hasProfile, profileDataRaw]);
+
+  useEffect(() => {
+    if (!normalizedProfileData) {
+      setEditableProfileData(createEmptyProfileData());
+      setIsEditing(false);
+      return;
+    }
+
+    setEditableProfileData(cloneProfileData(normalizedProfileData));
+  }, [normalizedProfileData]);
+
+  useEffect(() => {
+    setSaveError(null);
+    setSaveSuccess(null);
+    setIsEditing(false);
+  }, [selectedSiteId]);
+
   const hasNoJobAndNoProfile = !job && !profile && !profileLoading;
+
+  const handleSaveProfile = async () => {
+    if (!selectedSiteId) return;
+
+    setIsSaving(true);
+    setSaveError(null);
+    setSaveSuccess(null);
+
+    try {
+      const res = await fetch("/api/profiling/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          credential_id: selectedSiteId,
+          profile_data: editableProfileData,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        setSaveError(result.error || "프로파일 저장에 실패했습니다.");
+        return;
+      }
+
+      setIsEditing(false);
+      setSaveSuccess("브랜드 보이스 수정사항이 저장되었습니다.");
+      await refetchProfile();
+    } catch {
+      setSaveError("네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    if (normalizedProfileData) {
+      setEditableProfileData(cloneProfileData(normalizedProfileData));
+    }
+    setIsEditing(false);
+    setSaveError(null);
+  };
 
   return (
     <div className="max-w-4xl mx-auto py-10 px-6">
@@ -217,7 +636,7 @@ export default function VoiceProfilePage() {
           <h1 className="text-3xl font-bold tracking-tight">Voice Profile</h1>
         </div>
         <p className="text-muted-foreground italic">
-          AI가 분석한 블로그의 브랜드 보이스, 주요 주제, 독자 페르소나, 콘텐츠 패턴을 확인하세요.
+          AI가 분석한 블로그의 브랜드 보이스, 주요 주제, 독자 페르소나, 콘텐츠 패턴을 확인하고 수정할 수 있습니다.
         </p>
       </header>
 
@@ -243,7 +662,6 @@ export default function VoiceProfilePage() {
         </div>
       ) : (
         <>
-          {/* Site Selector */}
           {sites.length > 1 && (
             <div className="mb-8">
               <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider block mb-2">
@@ -266,7 +684,6 @@ export default function VoiceProfilePage() {
             </div>
           )}
 
-          {/* Site name label when single site */}
           {sites.length === 1 && (
             <div className="mb-8 flex items-center gap-2 text-sm text-muted-foreground">
               <Globe className="h-4 w-4" />
@@ -275,14 +692,12 @@ export default function VoiceProfilePage() {
             </div>
           )}
 
-          {/* Loading profile */}
           {profileLoading ? (
             <div className="flex flex-col items-center justify-center py-20 bg-muted/20 rounded-2xl border border-dashed">
               <Loader2 className="h-8 w-8 animate-spin text-primary/40 mb-3" />
               <p className="text-sm text-muted-foreground">프로파일을 불러오는 중입니다...</p>
             </div>
           ) : isActive && job ? (
-            /* Collection in progress */
             <div className="bg-card border rounded-2xl p-6 space-y-4">
               <h3 className="flex items-center gap-2 text-lg font-semibold">
                 <Database className="h-5 w-5 text-primary" />
@@ -290,43 +705,99 @@ export default function VoiceProfilePage() {
               </h3>
               <CollectionProgress job={job} />
             </div>
-          ) : hasProfile ? (
-            /* Profile exists - show detail */
+          ) : hasProfile && normalizedProfileData ? (
             <div className="space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-xs text-muted-foreground">
                   마지막 업데이트: {new Date(profile!.created_at).toLocaleDateString()} (v{profile!.version})
                 </p>
-                <button
-                  onClick={startCollection}
-                  disabled={isStarting}
-                  className={cn(
-                    "inline-flex items-center justify-center rounded-lg text-xs font-medium px-3 py-1.5 transition-all",
-                    isStarting
-                      ? "bg-muted text-muted-foreground cursor-not-allowed"
-                      : "bg-primary/10 text-primary hover:bg-primary/20"
-                  )}
-                >
-                  {isStarting ? (
-                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={startCollection}
+                    disabled={isStarting || isSaving}
+                    className={cn(
+                      "inline-flex items-center justify-center rounded-lg text-xs font-medium px-3 py-1.5 transition-all",
+                      isStarting || isSaving
+                        ? "bg-muted text-muted-foreground cursor-not-allowed"
+                        : "bg-primary/10 text-primary hover:bg-primary/20"
+                    )}
+                  >
+                    {isStarting ? (
+                      <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Database className="mr-1.5 h-3 w-3" />
+                    )}
+                    프로파일 재생성
+                  </button>
+
+                  {isEditing ? (
+                    <>
+                      <button
+                        onClick={handleCancelEdit}
+                        disabled={isSaving}
+                        className="inline-flex items-center justify-center rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                      >
+                        <X className="mr-1.5 h-3 w-3" />
+                        취소
+                      </button>
+                      <button
+                        onClick={handleSaveProfile}
+                        disabled={isSaving}
+                        className={cn(
+                          "inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-xs font-medium",
+                          isSaving
+                            ? "bg-muted text-muted-foreground cursor-not-allowed"
+                            : "bg-primary text-primary-foreground"
+                        )}
+                      >
+                        {isSaving ? (
+                          <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                        ) : (
+                          <Save className="mr-1.5 h-3 w-3" />
+                        )}
+                        저장
+                      </button>
+                    </>
                   ) : (
-                    <Database className="mr-1.5 h-3 w-3" />
+                    <button
+                      onClick={() => {
+                        setIsEditing(true);
+                        setSaveError(null);
+                        setSaveSuccess(null);
+                      }}
+                      className="inline-flex items-center justify-center rounded-lg border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                    >
+                      <Pencil className="mr-1.5 h-3 w-3" />
+                      수정
+                    </button>
                   )}
-                  프로파일 재생성
-                </button>
+                </div>
               </div>
-              <VoiceProfileDetail profileData={profile!.profile_data as ProfileData} />
+
+              {saveError && <p className="text-xs text-destructive">{saveError}</p>}
+              {saveSuccess && <p className="text-xs text-primary">{saveSuccess}</p>}
+
+              {isEditing ? (
+                <VoiceProfileEditor
+                  profileData={editableProfileData}
+                  onChange={(nextProfile) =>
+                    setEditableProfileData(normalizeProfileData(nextProfile))
+                  }
+                />
+              ) : (
+                <VoiceProfileDetail profileData={normalizedProfileData} />
+              )}
             </div>
           ) : isInsufficientData ? (
-            /* Insufficient data */
             <div className="flex flex-col items-center justify-center py-24 bg-card border rounded-2xl text-center px-6">
               <AlertCircle className="h-12 w-12 text-muted-foreground/20 mb-4" />
               <h3 className="text-lg font-medium">데이터가 부족합니다</h3>
               <p className="text-muted-foreground text-sm max-w-sm mx-auto mt-2">
-                {String(
-                  profileDataRaw?.message ||
-                    "블로그에 충분한 게시글이 없어 프로파일을 생성할 수 없습니다. 더 많은 콘텐츠를 작성한 후 다시 시도해주세요."
-                )}
+                {profileDataRaw.message ||
+                  "블로그에 충분한 게시글이 없어 프로파일을 생성할 수 없습니다. 더 많은 콘텐츠를 작성한 후 다시 시도해주세요."}
+              </p>
+              <p className="text-xs text-muted-foreground mt-3">
+                이 상태에서는 프로파일 편집이 비활성화됩니다.
               </p>
               <button
                 onClick={startCollection}
@@ -342,7 +813,6 @@ export default function VoiceProfilePage() {
               </button>
             </div>
           ) : hasNoJobAndNoProfile ? (
-            /* No job and no profile - CTA */
             <div className="flex flex-col items-center justify-center py-24 bg-card border rounded-2xl text-center px-6">
               <Sparkles className="h-12 w-12 text-muted-foreground/20 mb-4" />
               <h3 className="text-lg font-medium">Voice Profile을 생성해보세요</h3>
@@ -366,7 +836,6 @@ export default function VoiceProfilePage() {
               </button>
             </div>
           ) : job && job.status === "failed" ? (
-            /* Failed job, no profile */
             <div className="flex flex-col items-center justify-center py-24 bg-card border rounded-2xl text-center px-6">
               <AlertCircle className="h-12 w-12 text-destructive/20 mb-4" />
               <h3 className="text-lg font-medium">수집에 실패했습니다</h3>

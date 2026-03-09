@@ -77,19 +77,27 @@ Deno.serve(async (req) => {
         }).eq("id", jobId);
 
         if (posts.length === 0) {
-          // No posts - save empty profile
-          await admin.from("site_profiles").upsert(
-            {
-              credential_id,
-              user_id,
-              profile_data: {
-                status: "insufficient_data",
-                message: "게시글이 없어 분석이 불가합니다.",
-              },
-              version: 1,
+          // No posts - save insufficient profile as next version
+          const { data: existingProfile } = await admin
+            .from("site_profiles")
+            .select("version")
+            .eq("credential_id", credential_id)
+            .eq("user_id", user_id)
+            .order("version", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const nextVersion = existingProfile ? existingProfile.version + 1 : 1;
+
+          await admin.from("site_profiles").insert({
+            credential_id,
+            user_id,
+            profile_data: {
+              status: "insufficient_data",
+              message: "게시글이 없어 분석이 불가합니다.",
             },
-            { onConflict: "credential_id" },
-          );
+            version: nextVersion,
+          });
           await admin.from("collection_jobs").update({
             status: "completed",
             completed_at: new Date().toISOString(),

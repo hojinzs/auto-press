@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import type { SiteProfile } from "@/types/profiling";
 
@@ -10,8 +10,11 @@ export function useSiteProfile(credentialId: string | null) {
 
   const supabase = createClient();
 
-  const fetchProfile = async () => {
-    if (!credentialId) return;
+  const fetchProfile = useCallback(async () => {
+    if (!credentialId) {
+      setProfile(null);
+      return;
+    }
 
     setIsLoading(true);
     try {
@@ -21,17 +24,17 @@ export function useSiteProfile(credentialId: string | null) {
         .eq("credential_id", credentialId)
         .order("version", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (data) setProfile(data as SiteProfile);
+      setProfile(data ? (data as SiteProfile) : null);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [credentialId, supabase]);
 
   useEffect(() => {
     fetchProfile();
-  }, [credentialId]);
+  }, [fetchProfile]);
 
   return { profile, isLoading, refetch: fetchProfile };
 }
