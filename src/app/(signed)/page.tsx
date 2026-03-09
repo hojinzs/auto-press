@@ -1,4 +1,21 @@
-import { FileText, Zap, PenTool, ArrowRight, CheckCircle2, AlertCircle, Wifi, Globe, Plus } from "lucide-react";
+import {
+  FileText,
+  Zap,
+  PenTool,
+  ArrowRight,
+  CheckCircle2,
+  Clock3,
+  Wifi,
+  Globe,
+  Plus,
+} from "lucide-react";
+import {
+  ARCHIVED_DRAFT_STATUS,
+  DASHBOARD_ACTIVE_DRAFT_LIMIT,
+  DRAFT_LIST_ORDER_COLUMN,
+  DRAFT_LIST_ORDER_OPTIONS,
+  PUBLISHED_DRAFT_STATUS,
+} from "@/lib/drafts";
 import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 import type { ContentDraft } from "@/types/content";
@@ -18,12 +35,33 @@ function formatRelativeDate(dateStr: string): string {
   return date.toLocaleDateString();
 }
 
-function StatusBadge({ status }: { status: string }) {
+type DashboardDraft = Pick<
+  ContentDraft,
+  "id" | "title" | "status" | "topic" | "credential_id" | "created_at" | "updated_at"
+>;
+
+interface DashboardConnection {
+  id: string;
+  site_name: string;
+  site_url: string;
+  status: string;
+  created_at: string;
+}
+
+function StatusBadge({ status }: { status: ContentDraft["status"] }) {
   if (status === "published") {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">
         <CheckCircle2 className="h-3 w-3" />
         Published
+      </span>
+    );
+  }
+  if (status === "scheduled") {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+        <Clock3 className="h-3 w-3" />
+        Scheduled
       </span>
     );
   }
@@ -64,33 +102,40 @@ export default async function DashboardPage() {
   const supabase = await createClient();
 
   // Fetch all data in parallel
-  const [draftsResult, publishedResult, connectionsResult, recentDraftsResult] =
+  const [draftsResult, publishedResult, connectionsResult, activeDraftsResult] =
     await Promise.all([
       supabase
         .from("content_drafts")
-        .select("*", { count: "exact", head: true }),
+        .select("*", { count: "exact", head: true })
+        .neq("status", ARCHIVED_DRAFT_STATUS)
+        .neq("status", PUBLISHED_DRAFT_STATUS),
       supabase
         .from("content_drafts")
         .select("*", { count: "exact", head: true })
-        .eq("status", "published"),
+        .eq("status", PUBLISHED_DRAFT_STATUS),
       supabase
         .from("wp_credentials")
         .select("id, site_name, site_url, status, created_at")
-        .order("created_at", { ascending: false }),
+        .order(DRAFT_LIST_ORDER_COLUMN, DRAFT_LIST_ORDER_OPTIONS),
       supabase
         .from("content_drafts")
-        .select("id, title, status, topic, keywords, created_at, updated_at")
-        .order("created_at", { ascending: false })
-        .limit(5),
+        .select("id, title, status, topic, credential_id, created_at, updated_at")
+        .neq("status", ARCHIVED_DRAFT_STATUS)
+        .neq("status", PUBLISHED_DRAFT_STATUS)
+        .order(DRAFT_LIST_ORDER_COLUMN, DRAFT_LIST_ORDER_OPTIONS)
+        .limit(DASHBOARD_ACTIVE_DRAFT_LIMIT),
     ]);
 
   const totalDrafts = draftsResult.count ?? 0;
   const publishedCount = publishedResult.count ?? 0;
-  const connections = connectionsResult.data ?? [];
-  const recentDrafts = (recentDraftsResult.data ?? []) as Pick<
-    ContentDraft,
-    "id" | "title" | "status" | "topic" | "keywords" | "created_at" | "updated_at"
-  >[];
+  const connections = (connectionsResult.data ?? []) as DashboardConnection[];
+  const siteNameByCredentialId = new Map(
+    connections.map((connection: DashboardConnection) => [
+      connection.id,
+      connection.site_name,
+    ]),
+  );
+  const activeDrafts = (activeDraftsResult.data ?? []) as DashboardDraft[];
   const siteCount = connections.length;
 
   const stats = [
@@ -155,11 +200,11 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Recent Drafts */}
+        {/* Active Drafts */}
         <div className="lg:col-span-2 rounded-xl border bg-card shadow-sm">
           <div className="flex items-center justify-between p-5 border-b">
-            <h2 className="font-semibold text-lg">Recent Drafts</h2>
-            {recentDrafts.length > 0 && (
+            <h2 className="font-semibold text-lg">Active Drafts</h2>
+            {activeDrafts.length > 0 && (
               <Link
                 href="/drafts"
                 className="text-sm text-primary hover:underline flex items-center gap-1"
@@ -168,7 +213,7 @@ export default async function DashboardPage() {
               </Link>
             )}
           </div>
-          {recentDrafts.length === 0 ? (
+          {activeDrafts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
               <FileText className="h-10 w-10 text-muted-foreground/20 mb-3" />
               <p className="text-sm font-medium text-muted-foreground">
@@ -187,31 +232,43 @@ export default async function DashboardPage() {
             </div>
           ) : (
             <div className="divide-y">
-              {recentDrafts.map((draft) => (
-                <Link
-                  key={draft.id}
-                  href={`/drafts/${draft.id}`}
-                  className="flex items-center justify-between p-5 hover:bg-secondary/30 transition-colors cursor-pointer"
-                >
-                  <div className="space-y-1 min-w-0 flex-1">
-                    <p className="font-medium truncate">
-                      {draft.title || "제목 없음"}
-                    </p>
-                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                      {draft.topic && (
-                        <>
-                          <span className="truncate max-w-[200px]">
-                            {draft.topic}
-                          </span>
-                          <span>·</span>
-                        </>
-                      )}
-                      <span>{formatRelativeDate(draft.created_at)}</span>
+              {activeDrafts.map((draft) => {
+                const siteName = siteNameByCredentialId.get(draft.credential_id);
+
+                return (
+                  <Link
+                    key={draft.id}
+                    href={`/drafts/${draft.id}`}
+                    className="flex items-center justify-between gap-4 p-5 hover:bg-secondary/30 transition-colors cursor-pointer"
+                  >
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <p className="font-medium truncate">
+                        {draft.title || "제목 없음"}
+                      </p>
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                        {siteName && (
+                          <>
+                            <span className="truncate max-w-[140px]">
+                              {siteName}
+                            </span>
+                            <span>·</span>
+                          </>
+                        )}
+                        {draft.topic && (
+                          <>
+                            <span className="truncate max-w-[200px]">
+                              {draft.topic}
+                            </span>
+                            <span>·</span>
+                          </>
+                        )}
+                        <span>{formatRelativeDate(draft.created_at)}</span>
+                      </div>
                     </div>
-                  </div>
-                  <StatusBadge status={draft.status} />
-                </Link>
-              ))}
+                    <StatusBadge status={draft.status} />
+                  </Link>
+                );
+              })}
             </div>
           )}
         </div>
@@ -241,7 +298,7 @@ export default async function DashboardPage() {
               </div>
             ) : (
               <div className="divide-y">
-                {connections.map((conn) => (
+          {connections.map((conn: DashboardConnection) => (
                   <div
                     key={conn.id}
                     className="flex items-center justify-between p-4"
