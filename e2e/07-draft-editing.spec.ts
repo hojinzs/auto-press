@@ -12,6 +12,20 @@ test.describe("초안 수정 API 보호", () => {
     expect(res.status()).toBe(401);
   });
 
+  test("비인증 사용자는 초안 발행 API 호출 불가", async ({ request }) => {
+    const res = await request.post("/api/content/some-draft-id/publish", {
+      data: {},
+    });
+
+    expect(res.status()).toBe(401);
+  });
+
+  test("비인증 사용자는 초안 삭제 API 호출 불가", async ({ request }) => {
+    const res = await request.delete("/api/content/some-draft-id");
+
+    expect(res.status()).toBe(401);
+  });
+
   test("비인증 사용자는 초안 상세 페이지에서 로그인으로 리다이렉트", async ({
     page,
   }) => {

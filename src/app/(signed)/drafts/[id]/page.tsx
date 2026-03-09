@@ -85,7 +85,15 @@ export default function DraftDetailPage({
 
   const handleSave = async () => {
     if (!draft || !isEditable || !hasChanges || !normalizedTitle) return;
-    await updateDraft({ title: normalizedTitle, content_html: draftContent });
+    const updatedDraft = await updateDraft({
+      title: normalizedTitle,
+      content_html: draftContent,
+    });
+
+    if (updatedDraft) {
+      setDraftTitle(updatedDraft.title ?? "");
+      setDraftContent(updatedDraft.content_html ?? "");
+    }
   };
 
   if (isLoading || !draft) {

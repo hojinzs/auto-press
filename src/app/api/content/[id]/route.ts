@@ -7,7 +7,7 @@ const BLOCKED_EDIT_STATUSES: DraftStatus[] = [
   "scheduled",
   "archived",
 ];
-const ALLOWED_PATCH_STATUSES: DraftStatus[] = ["draft", "archived"];
+const ALLOWED_PATCH_STATUSES: DraftStatus[] = ["draft"];
 
 export async function GET(
   _request: NextRequest,
