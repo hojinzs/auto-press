@@ -530,6 +530,7 @@ export default function VoiceProfilePage() {
   const {
     profile,
     isLoading: profileLoading,
+    error: profileError,
     refetch: refetchProfile,
   } = useSiteProfile(selectedSiteId);
   const {
@@ -776,6 +777,7 @@ export default function VoiceProfilePage() {
 
               {saveError && <p className="text-xs text-destructive">{saveError}</p>}
               {saveSuccess && <p className="text-xs text-primary">{saveSuccess}</p>}
+              {profileError && <p className="text-xs text-destructive">{profileError}</p>}
 
               {isEditing ? (
                 <VoiceProfileEditor

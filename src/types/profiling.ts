@@ -96,9 +96,10 @@ function toCleanString(value: unknown): string {
 
 function toCleanStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
-  return value
+  const items = value
     .map((item) => toCleanString(item))
     .filter((item) => item.length > 0);
+  return Array.from(new Set(items));
 }
 
 function toFrequency(value: unknown): number {

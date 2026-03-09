@@ -34,6 +34,13 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
+  if (payload.profile_data === undefined) {
+    return NextResponse.json(
+      { error: "profile_data가 필요합니다." },
+      { status: 400 },
+    );
+  }
+
   const { data: credential } = await supabase
     .from("wp_credentials")
     .select("id")
@@ -68,6 +75,13 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json(
       { error: "데이터가 부족한 상태의 프로파일은 수정할 수 없습니다." },
       { status: 409 },
+    );
+  }
+
+  if (isInsufficientProfileData(payload.profile_data)) {
+    return NextResponse.json(
+      { error: "insufficient_data 형식은 저장할 수 없습니다." },
+      { status: 400 },
     );
   }
 
