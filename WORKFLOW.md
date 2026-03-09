@@ -33,16 +33,17 @@ retry:
 ---
 
 You are an AI coding agent working on the `{{issue.repository}}` repository.
+Your current phase is: **{{issue.phase}}**
 
-## Current task
-
-Planning phase for issue **{{issue.identifier}}**: {{issue.title}}
-
-## Instructions
-
-Follow these steps in order. Do not skip any step.
+Follow ONLY the section that matches your phase. Skip all other sections.
 
 ---
+
+## PHASE: planning
+
+*(Follow this section only when `{{issue.phase}}` is `planning`)*
+
+You are planning issue **{{issue.identifier}}**: {{issue.title}}
 
 ### Step 1 — Fetch issue details
 
@@ -58,48 +59,36 @@ query {
 }
 ```
 
-Note the `id` (Node ID) — you will need it in later steps.
+Note the `id` (Node ID) — you need it in steps 3 and 4.
 
----
+### Step 2 — Write implementation plan
 
-### Step 2 — Write an implementation plan
-
-Based on the issue title and body, write a concise implementation plan:
-- 3–5 bullet points describing what needs to be built or changed
+Based on the issue, write a concise plan:
+- 3–5 bullet points: what to build or change
 - Which files are likely involved
 - Any edge cases or risks
 
----
-
-### Step 3 — Append the plan to the issue body
-
-Take the current `body` from Step 1. Append the plan section below it and update the issue:
+### Step 3 — Append plan to issue body
 
 ```graphql
 mutation {
   updateIssue(input: {
-    id: "<ISSUE_NODE_ID_FROM_STEP_1>"
-    body: "<CURRENT_BODY_FROM_STEP_1>\n\n---\n\n## 📋 Implementation Plan\n\n<YOUR_PLAN_HERE>"
+    id: "<ISSUE_NODE_ID>"
+    body: "<CURRENT_BODY>\n\n---\n\n## 📋 Implementation Plan\n\n<YOUR_PLAN>"
   }) {
     issue { id }
   }
 }
 ```
 
-Replace `<ISSUE_NODE_ID_FROM_STEP_1>` with the `id` field from Step 1.
-Replace `<CURRENT_BODY_FROM_STEP_1>` with the exact existing body (empty string `""` if body was null or empty).
-Replace `<YOUR_PLAN_HERE>` with your plan from Step 2.
+Use empty string `""` for `<CURRENT_BODY>` if the original body was null/empty.
 
----
-
-### Step 4 — Add a transition comment
-
-Post a comment on the issue announcing that planning is complete:
+### Step 4 — Add transition comment
 
 ```graphql
 mutation {
   addComment(input: {
-    subjectId: "<ISSUE_NODE_ID_FROM_STEP_1>"
+    subjectId: "<ISSUE_NODE_ID>"
     body: "🔄 **Planning complete** — moving to Plan Review.\n\nSee the implementation plan above."
   }) {
     commentEdge { node { id } }
@@ -107,11 +96,9 @@ mutation {
 }
 ```
 
----
+### Step 5 — Move status to "Plan Review"
 
-### Step 5 — Move status to "Plan Review" (REQUIRED)
-
-First, query the project to get the Status field ID, the "Plan Review" option ID, and this issue's project item ID:
+Query project to get field ID, option ID, and item ID:
 
 ```graphql
 query {
@@ -129,9 +116,7 @@ query {
       items(first: 20) {
         nodes {
           id
-          content {
-            ... on Issue { number }
-          }
+          content { ... on Issue { number } }
         }
       }
     }
@@ -139,12 +124,7 @@ query {
 }
 ```
 
-Find:
-- The item where `content.number == {{issue.number}}` → its `id` is the `itemId`
-- The field named `"Status"` → its `id` is the `fieldId`
-- The option named `"Plan Review"` inside that field → its `id` is the `optionId`
-
-Then run the mutation:
+Find item where `content.number == {{issue.number}}`, field named `"Status"`, option named `"Plan Review"`. Then:
 
 ```graphql
 mutation {
@@ -159,7 +139,116 @@ mutation {
 }
 ```
 
-All 5 steps must be completed before you finish.
+---
+
+## PHASE: implementation
+
+*(Follow this section only when `{{issue.phase}}` is `implementation`)*
+
+You are implementing issue **{{issue.identifier}}**: {{issue.title}}
+
+### Step 1 — Read the plan
+
+```graphql
+query {
+  repository(owner: "hojinzs", name: "auto-press") {
+    issue(number: {{issue.number}}) {
+      id
+      body
+    }
+  }
+}
+```
+
+Find the `## 📋 Implementation Plan` section in the body. That is your implementation spec.
+Note the issue `id` (Node ID) — you need it later.
+
+### Step 2 — Implement the changes
+
+1. Create a feature branch:
+   ```bash
+   git checkout -b feature/issue-{{issue.number}}
+   ```
+2. Make all code changes required by the plan.
+3. Run existing tests if any (`npm test`, `pnpm test`, etc.).
+4. Commit:
+   ```bash
+   git add -A
+   git commit -m "feat: implement {{issue.title}} (closes #{{issue.number}})"
+   ```
+5. Push:
+   ```bash
+   git push origin feature/issue-{{issue.number}}
+   ```
+
+### Step 3 — Open a Pull Request
+
+Get the repository node ID first:
+
+```graphql
+query {
+  repository(owner: "hojinzs", name: "auto-press") {
+    id
+    defaultBranchRef { name }
+  }
+}
+```
+
+Then create the PR:
+
+```graphql
+mutation {
+  createPullRequest(input: {
+    repositoryId: "<REPO_NODE_ID>"
+    title: "{{issue.title}}"
+    body: "Fixes #{{issue.number}}\n\n## Summary\n\n<brief description of what was implemented>"
+    headRefName: "feature/issue-{{issue.number}}"
+    baseRefName: "main"
+  }) {
+    pullRequest {
+      id
+      number
+      url
+    }
+  }
+}
+```
+
+Note the PR `url` and `number`.
+
+### Step 4 — Add transition comment to issue
+
+```graphql
+mutation {
+  addComment(input: {
+    subjectId: "<ISSUE_NODE_ID_FROM_STEP_1>"
+    body: "🚀 **Implementation complete** — PR opened for review.\n\nPR: <PR_URL_FROM_STEP_3>"
+  }) {
+    commentEdge { node { id } }
+  }
+}
+```
+
+### Step 5 — Move status to "In Review"
+
+Query project for field ID and item ID (same query as planning phase Step 5), then:
+
+```graphql
+mutation {
+  updateProjectV2ItemFieldValue(input: {
+    projectId: "PVT_kwHOAPiKdM4BRH04"
+    itemId: "<ITEM_ID>"
+    fieldId: "<FIELD_ID>"
+    value: { singleSelectOptionId: "<IN_REVIEW_OPTION_ID>" }
+  }) {
+    projectV2Item { id }
+  }
+}
+```
+
+The option to use is `"In Review"`.
+
+---
 
 ## Guidelines
 
