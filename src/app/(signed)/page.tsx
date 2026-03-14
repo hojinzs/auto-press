@@ -11,9 +11,9 @@ import {
 } from "lucide-react";
 import {
   ARCHIVED_DRAFT_STATUS,
+  CREATED_AT_DESC_ORDER_COLUMN,
+  CREATED_AT_DESC_ORDER_OPTIONS,
   DASHBOARD_ACTIVE_DRAFT_LIMIT,
-  DRAFT_LIST_ORDER_COLUMN,
-  DRAFT_LIST_ORDER_OPTIONS,
   PUBLISHED_DRAFT_STATUS,
 } from "@/lib/drafts";
 import { createClient } from "@/utils/supabase/server";
@@ -115,13 +115,13 @@ export default async function DashboardPage() {
       supabase
         .from("wp_credentials")
         .select("id, site_name, site_url, status, created_at")
-        .order(DRAFT_LIST_ORDER_COLUMN, DRAFT_LIST_ORDER_OPTIONS),
+        .order(CREATED_AT_DESC_ORDER_COLUMN, CREATED_AT_DESC_ORDER_OPTIONS),
       supabase
         .from("content_drafts")
         .select("id, title, status, topic, credential_id, created_at")
         .neq("status", ARCHIVED_DRAFT_STATUS)
         .neq("status", PUBLISHED_DRAFT_STATUS)
-        .order(DRAFT_LIST_ORDER_COLUMN, DRAFT_LIST_ORDER_OPTIONS)
+        .order(CREATED_AT_DESC_ORDER_COLUMN, CREATED_AT_DESC_ORDER_OPTIONS)
         .limit(DASHBOARD_ACTIVE_DRAFT_LIMIT),
     ]);
 

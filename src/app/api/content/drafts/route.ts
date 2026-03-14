@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   ARCHIVED_DRAFT_STATUS,
-  DRAFT_LIST_ORDER_COLUMN,
-  DRAFT_LIST_ORDER_OPTIONS,
+  CREATED_AT_DESC_ORDER_COLUMN,
+  CREATED_AT_DESC_ORDER_OPTIONS,
 } from "@/lib/drafts";
 import { createClient } from "@/utils/supabase/server";
 
@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
   }
 
   const { data, error } = await query.order(
-    DRAFT_LIST_ORDER_COLUMN,
-    DRAFT_LIST_ORDER_OPTIONS,
+    CREATED_AT_DESC_ORDER_COLUMN,
+    CREATED_AT_DESC_ORDER_OPTIONS,
   );
 
   if (error) {
