@@ -8,6 +8,8 @@ export function useDraft(draftId: string | null) {
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   const fetchDraft = useCallback(async () => {
     if (!draftId) return;
@@ -35,6 +37,8 @@ export function useDraft(draftId: string | null) {
   ) => {
     if (!draftId) return;
 
+    setSaveError(null);
+    setSaveSuccess(false);
     setIsSaving(true);
     try {
       const res = await fetch(`/api/content/${draftId}`, {
@@ -42,15 +46,29 @@ export function useDraft(draftId: string | null) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
       });
+      const data = await res.json().catch(() => null);
       if (res.ok) {
-        const data = await res.json();
         setDraft(data as ContentDraft);
+        setSaveSuccess(true);
+        return data as ContentDraft;
       }
+      setSaveError(
+        typeof data?.error === "string"
+          ? data.error
+          : "초안 저장에 실패했습니다.",
+      );
+      return null;
     } catch {
-      // ignore
+      setSaveError("초안 저장 중 오류가 발생했습니다.");
+      return null;
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const clearSaveFeedback = () => {
+    setSaveError(null);
+    setSaveSuccess(false);
   };
 
   const publishDraft = async (scheduledAt?: string) => {
@@ -78,5 +96,16 @@ export function useDraft(draftId: string | null) {
     }
   };
 
-  return { draft, isLoading, isSaving, isPublishing, updateDraft, publishDraft, refetch: fetchDraft };
+  return {
+    draft,
+    isLoading,
+    isSaving,
+    isPublishing,
+    saveError,
+    saveSuccess,
+    updateDraft,
+    clearSaveFeedback,
+    publishDraft,
+    refetch: fetchDraft,
+  };
 }

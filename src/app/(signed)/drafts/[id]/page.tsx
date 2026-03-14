@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   Loader2,
   ArrowLeft,
-  FileText,
   Link2,
   Tag,
   Clock,
@@ -15,6 +14,11 @@ import {
   Trash2,
   Send,
   CalendarClock,
+  CheckCircle2,
+  AlertCircle,
+  Pencil,
+  Eye,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -26,10 +30,23 @@ export default function DraftDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { draft, isLoading, isSaving, isPublishing, updateDraft, publishDraft } = useDraft(id);
+  const {
+    draft,
+    isLoading,
+    isSaving,
+    isPublishing,
+    saveError,
+    saveSuccess,
+    updateDraft,
+    clearSaveFeedback,
+    publishDraft,
+  } = useDraft(id);
   const router = useRouter();
   const [showScheduler, setShowScheduler] = useState(false);
   const [scheduledAt, setScheduledAt] = useState("");
+  const [draftTitle, setDraftTitle] = useState("");
+  const [draftContent, setDraftContent] = useState("");
+  const [isEditMode, setIsEditMode] = useState(false);
 
   const handleDelete = async () => {
     const res = await fetch(`/api/content/${id}`, { method: "DELETE" });
@@ -57,6 +74,44 @@ export default function DraftDetailPage({
   };
 
   const isPublishedOrScheduled = draft?.status === "published" || draft?.status === "scheduled";
+  const isEditable = draft?.status === "draft";
+  const normalizedTitle = draftTitle.trim();
+  const hasChanges =
+    !!draft &&
+    isEditMode &&
+    (normalizedTitle !== (draft.title ?? "").trim() ||
+      draftContent !== (draft.content_html ?? ""));
+
+  const startEditing = () => {
+    if (!draft || !isEditable) return;
+    setDraftTitle(draft.title ?? "");
+    setDraftContent(draft.content_html ?? "");
+    setIsEditMode(true);
+    clearSaveFeedback();
+  };
+
+  const cancelEditing = () => {
+    if (!draft) return;
+    setDraftTitle(draft.title ?? "");
+    setDraftContent(draft.content_html ?? "");
+    setIsEditMode(false);
+    clearSaveFeedback();
+  };
+
+  const handleSave = async () => {
+    if (!draft || !isEditable || !hasChanges || !normalizedTitle) return;
+
+    const updatedDraft = await updateDraft({
+      title: normalizedTitle,
+      content_html: draftContent,
+    });
+
+    if (updatedDraft) {
+      setDraftTitle(updatedDraft.title ?? "");
+      setDraftContent(updatedDraft.content_html ?? "");
+      setIsEditMode(false);
+    }
+  };
 
   if (isLoading || !draft) {
     return (
@@ -95,11 +150,11 @@ export default function DraftDetailPage({
             </h1>
             <div className="flex items-center gap-2 shrink-0">
               <button
-                onClick={() => updateDraft({ title: draft.title })}
-                disabled={isSaving}
+                onClick={handleSave}
+                disabled={isSaving || !isEditable || !hasChanges || !normalizedTitle}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
-                  isSaving
+                  isSaving || !isEditable || !hasChanges || !normalizedTitle
                     ? "bg-muted text-muted-foreground"
                     : "bg-primary/10 text-primary hover:bg-primary/20",
                 )}
@@ -120,6 +175,106 @@ export default function DraftDetailPage({
               </button>
             </div>
           </div>
+
+          {saveError && (
+            <div className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              <AlertCircle className="h-3.5 w-3.5" />
+              {saveError}
+            </div>
+          )}
+
+          {saveSuccess && !saveError && (
+            <div className="flex items-center gap-2 rounded-lg border border-emerald-300/40 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-700 dark:text-emerald-300">
+              <CheckCircle2 className="h-3.5 w-3.5" />
+              초안이 저장되었습니다.
+            </div>
+          )}
+
+          {isEditable ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => {
+                  setIsEditMode(false);
+                  clearSaveFeedback();
+                }}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+                  !isEditMode
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-primary/10 text-primary hover:bg-primary/20",
+                )}
+              >
+                <Eye className="h-3 w-3" />
+                미리보기
+              </button>
+              <button
+                onClick={startEditing}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
+                  isEditMode
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-primary/10 text-primary hover:bg-primary/20",
+                )}
+              >
+                <Pencil className="h-3 w-3" />
+                편집
+              </button>
+              {isEditMode && (
+                <button
+                  onClick={cancelEditing}
+                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-muted transition-all"
+                >
+                  <X className="h-3 w-3" />
+                  취소
+                </button>
+              )}
+              {hasChanges && (
+                <span className="text-xs text-muted-foreground">
+                  저장되지 않은 변경사항
+                </span>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              {draft.status === "archived"
+                ? "보관된 초안은 수정할 수 없습니다."
+                : "발행 또는 예약된 초안은 수정할 수 없습니다."}
+            </p>
+          )}
+
+          {isEditMode && isEditable && (
+            <div className="bg-card border rounded-2xl p-5 space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  제목
+                </label>
+                <input
+                  value={draftTitle}
+                  onChange={(e) => {
+                    setDraftTitle(e.target.value);
+                    clearSaveFeedback();
+                  }}
+                  className="w-full rounded-lg border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="제목을 입력하세요"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  본문 (HTML)
+                </label>
+                <textarea
+                  value={draftContent}
+                  onChange={(e) => {
+                    setDraftContent(e.target.value);
+                    clearSaveFeedback();
+                  }}
+                  rows={18}
+                  className="w-full rounded-lg border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
+                  placeholder="<h2>제목</h2><p>내용</p>"
+                />
+              </div>
+            </div>
+          )}
 
           {/* HTML Preview with highlighted internal links */}
           <div className="bg-card border rounded-2xl p-8 sm:p-10">
@@ -144,7 +299,9 @@ export default function DraftDetailPage({
                 // Strong
                 "prose-strong:text-foreground prose-strong:font-semibold",
               )}
-              dangerouslySetInnerHTML={{ __html: draft.content_html }}
+              dangerouslySetInnerHTML={{
+                __html: isEditMode ? draftContent : draft.content_html,
+              }}
             />
           </div>
         </div>
