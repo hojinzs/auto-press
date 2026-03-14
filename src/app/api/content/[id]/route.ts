@@ -75,7 +75,7 @@ export async function PATCH(
   }
 
   const body = await request.json().catch(() => null);
-  if (!body || typeof body !== "object") {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
     return NextResponse.json(
       { error: "유효한 JSON 본문이 필요합니다." },
       { status: 400 },
@@ -139,10 +139,32 @@ export async function PATCH(
     .update(allowedFields)
     .eq("id", id)
     .eq("user_id", user.id)
+    .eq("status", "draft")
     .select()
     .single();
 
   if (error) {
+    const { data: latestDraft } = await supabase
+      .from("content_drafts")
+      .select("status")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (!latestDraft) {
+      return NextResponse.json(
+        { error: "초안을 찾을 수 없습니다." },
+        { status: 404 },
+      );
+    }
+
+    if (BLOCKED_EDIT_STATUSES.includes(latestDraft.status as DraftStatus)) {
+      return NextResponse.json(
+        { error: "발행/예약/보관된 초안은 수정할 수 없습니다." },
+        { status: 400 },
+      );
+    }
+
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

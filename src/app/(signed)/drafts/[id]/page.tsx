@@ -78,14 +78,17 @@ export default function DraftDetailPage({
   const normalizedTitle = draftTitle.trim();
   const hasChanges =
     !!draft &&
-    isEditMode &&
     (normalizedTitle !== (draft.title ?? "").trim() ||
       draftContent !== (draft.content_html ?? ""));
+  const previewTitle = hasChanges ? normalizedTitle || "제목 없음" : draft?.title || "제목 없음";
+  const previewContent = hasChanges ? draftContent : draft?.content_html ?? "";
 
   const startEditing = () => {
     if (!draft || !isEditable) return;
-    setDraftTitle(draft.title ?? "");
-    setDraftContent(draft.content_html ?? "");
+    if (!hasChanges) {
+      setDraftTitle(draft.title ?? "");
+      setDraftContent(draft.content_html ?? "");
+    }
     setIsEditMode(true);
     clearSaveFeedback();
   };
@@ -146,7 +149,7 @@ export default function DraftDetailPage({
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-start justify-between gap-4">
             <h1 className="text-2xl font-bold tracking-tight flex-1">
-              {draft.title || "제목 없음"}
+              {previewTitle}
             </h1>
             <div className="flex items-center gap-2 shrink-0">
               <button
@@ -300,7 +303,7 @@ export default function DraftDetailPage({
                 "prose-strong:text-foreground prose-strong:font-semibold",
               )}
               dangerouslySetInnerHTML={{
-                __html: isEditMode ? draftContent : draft.content_html,
+                __html: previewContent,
               }}
             />
           </div>
