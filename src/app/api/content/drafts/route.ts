@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  ARCHIVED_DRAFT_STATUS,
+  CREATED_AT_DESC_ORDER_COLUMN,
+  CREATED_AT_DESC_ORDER_OPTIONS,
+} from "@/lib/drafts";
 import { createClient } from "@/utils/supabase/server";
 
 export async function GET(request: NextRequest) {
@@ -17,14 +22,16 @@ export async function GET(request: NextRequest) {
   let query = supabase
     .from("content_drafts")
     .select("*")
-    .neq("status", "archived")
-    .order("created_at", { ascending: false });
+    .neq("status", ARCHIVED_DRAFT_STATUS);
 
   if (credentialId) {
     query = query.eq("credential_id", credentialId);
   }
 
-  const { data, error } = await query;
+  const { data, error } = await query.order(
+    CREATED_AT_DESC_ORDER_COLUMN,
+    CREATED_AT_DESC_ORDER_OPTIONS,
+  );
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
