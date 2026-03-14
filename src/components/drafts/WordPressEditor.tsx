@@ -20,6 +20,7 @@ import {
   RemoveFormatting,
   Undo2,
 } from "lucide-react";
+import { normalizeDraftLinkHref } from "@/lib/draft-content";
 import { cn } from "@/lib/utils";
 
 type WordPressEditorProps = {
@@ -129,7 +130,14 @@ export function WordPressEditor({
       return;
     }
 
-    editor.chain().focus().extendMarkRange("link").setLink({ href: nextUrl.trim() }).run();
+    const normalizedHref = normalizeDraftLinkHref(nextUrl);
+
+    if (!normalizedHref) {
+      window.alert("http, https, mailto 또는 상대 경로 링크만 사용할 수 있습니다.");
+      return;
+    }
+
+    editor.chain().focus().extendMarkRange("link").setLink({ href: normalizedHref }).run();
   };
 
   if (!editor) {

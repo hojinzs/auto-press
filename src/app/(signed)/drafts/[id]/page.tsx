@@ -3,7 +3,7 @@
 import { use, useState } from "react";
 import { WordPressEditor } from "@/components/drafts/WordPressEditor";
 import { useDraft } from "@/hooks/useDraft";
-import { hasMeaningfulDraftHtml } from "@/lib/draft-content";
+import { hasMeaningfulDraftHtml, normalizeDraftHtml } from "@/lib/draft-content";
 import Link from "next/link";
 import {
   Loader2,
@@ -90,7 +90,9 @@ export default function DraftDetailPage({
       activeContent !== (draft.content_html ?? ""));
   const canSave = isEditable && hasChanges && !!normalizedTitle && hasValidContent;
   const previewTitle = hasChanges ? normalizedTitle || "제목 없음" : draft?.title || "제목 없음";
-  const previewContent = hasChanges ? activeContent : draft?.content_html ?? "";
+  const previewContent = normalizeDraftHtml(
+    hasChanges ? activeContent : (draft?.content_html ?? ""),
+  );
 
   const startEditing = () => {
     if (!draft || !isEditable) return;
