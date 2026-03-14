@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { hasMeaningfulDraftHtml, normalizeDraftHtml } from "@/lib/draft-content";
 import type { DraftStatus } from "@/types/content";
 import { createClient } from "@/utils/supabase/server";
 
@@ -99,12 +100,8 @@ export async function PATCH(
         { status: 400 },
       );
     }
-    const normalizedContent = body.content_html.trim();
-    if (
-      !normalizedContent ||
-      !normalizedContent.includes("<") ||
-      !normalizedContent.includes(">")
-    ) {
+    const normalizedContent = normalizeDraftHtml(body.content_html);
+    if (!hasMeaningfulDraftHtml(normalizedContent)) {
       return NextResponse.json(
         { error: "본문은 유효한 HTML이어야 합니다." },
         { status: 400 },

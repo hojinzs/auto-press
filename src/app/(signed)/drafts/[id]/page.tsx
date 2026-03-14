@@ -1,7 +1,9 @@
 "use client";
 
 import { use, useState } from "react";
+import { WordPressEditor } from "@/components/drafts/WordPressEditor";
 import { useDraft } from "@/hooks/useDraft";
+import { hasMeaningfulDraftHtml } from "@/lib/draft-content";
 import Link from "next/link";
 import {
   Loader2,
@@ -46,6 +48,7 @@ export default function DraftDetailPage({
   const [scheduledAt, setScheduledAt] = useState("");
   const [draftTitle, setDraftTitle] = useState("");
   const [draftContent, setDraftContent] = useState("");
+  const [localDraftId, setLocalDraftId] = useState<string | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
 
   const handleDelete = async () => {
@@ -75,26 +78,32 @@ export default function DraftDetailPage({
 
   const isPublishedOrScheduled = draft?.status === "published" || draft?.status === "scheduled";
   const isEditable = draft?.status === "draft";
-  const normalizedTitle = draftTitle.trim();
+  const activeTitle =
+    draft && localDraftId === draft.id ? draftTitle : (draft?.title ?? "");
+  const activeContent =
+    draft && localDraftId === draft.id ? draftContent : (draft?.content_html ?? "");
+  const normalizedTitle = activeTitle.trim();
+  const hasValidContent = hasMeaningfulDraftHtml(activeContent);
   const hasChanges =
     !!draft &&
     (normalizedTitle !== (draft.title ?? "").trim() ||
-      draftContent !== (draft.content_html ?? ""));
+      activeContent !== (draft.content_html ?? ""));
+  const canSave = isEditable && hasChanges && !!normalizedTitle && hasValidContent;
   const previewTitle = hasChanges ? normalizedTitle || "제목 없음" : draft?.title || "제목 없음";
-  const previewContent = hasChanges ? draftContent : draft?.content_html ?? "";
+  const previewContent = hasChanges ? activeContent : draft?.content_html ?? "";
 
   const startEditing = () => {
     if (!draft || !isEditable) return;
-    if (!hasChanges) {
-      setDraftTitle(draft.title ?? "");
-      setDraftContent(draft.content_html ?? "");
-    }
+    setLocalDraftId(draft.id);
+    setDraftTitle(activeTitle);
+    setDraftContent(activeContent);
     setIsEditMode(true);
     clearSaveFeedback();
   };
 
   const cancelEditing = () => {
     if (!draft) return;
+    setLocalDraftId(draft.id);
     setDraftTitle(draft.title ?? "");
     setDraftContent(draft.content_html ?? "");
     setIsEditMode(false);
@@ -102,7 +111,7 @@ export default function DraftDetailPage({
   };
 
   const handleSave = async () => {
-    if (!draft || !isEditable || !hasChanges || !normalizedTitle) return;
+    if (!draft || !canSave) return;
 
     const updatedDraft = await updateDraft({
       title: normalizedTitle,
@@ -110,6 +119,7 @@ export default function DraftDetailPage({
     });
 
     if (updatedDraft) {
+      setLocalDraftId(updatedDraft.id);
       setDraftTitle(updatedDraft.title ?? "");
       setDraftContent(updatedDraft.content_html ?? "");
       setIsEditMode(false);
@@ -154,10 +164,10 @@ export default function DraftDetailPage({
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={handleSave}
-                disabled={isSaving || !isEditable || !hasChanges || !normalizedTitle}
+                disabled={isSaving || !canSave}
                 className={cn(
                   "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all",
-                  isSaving || !isEditable || !hasChanges || !normalizedTitle
+                  isSaving || !canSave
                     ? "bg-muted text-muted-foreground"
                     : "bg-primary/10 text-primary hover:bg-primary/20",
                 )}
@@ -252,8 +262,9 @@ export default function DraftDetailPage({
                   제목
                 </label>
                 <input
-                  value={draftTitle}
+                  value={activeTitle}
                   onChange={(e) => {
+                    setLocalDraftId(draft.id);
                     setDraftTitle(e.target.value);
                     clearSaveFeedback();
                   }}
@@ -263,18 +274,22 @@ export default function DraftDetailPage({
               </div>
               <div className="space-y-2">
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  본문 (HTML)
+                  본문
                 </label>
-                <textarea
-                  value={draftContent}
-                  onChange={(e) => {
-                    setDraftContent(e.target.value);
+                <WordPressEditor
+                  value={activeContent}
+                  onChange={(value) => {
+                    setLocalDraftId(draft.id);
+                    setDraftContent(value);
                     clearSaveFeedback();
                   }}
-                  rows={18}
-                  className="w-full rounded-lg border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/50"
-                  placeholder="<h2>제목</h2><p>내용</p>"
+                  disabled={!isEditable || isSaving}
                 />
+                {!hasValidContent && (
+                  <p className="text-xs text-destructive">
+                    본문에는 최소 한 개 이상의 문단 또는 목록 텍스트가 필요합니다.
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -303,7 +318,9 @@ export default function DraftDetailPage({
                 "prose-strong:text-foreground prose-strong:font-semibold",
               )}
               dangerouslySetInnerHTML={{
-                __html: previewContent,
+                __html:
+                  previewContent ||
+                  "<p class='text-sm text-muted-foreground'>미리보기할 본문이 없습니다.</p>",
               }}
             />
           </div>

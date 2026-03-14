@@ -122,3 +122,12 @@ export function getEditableProfileData(
 
   return normalizeProfileDataInput(profileData);
 }
+
+const siteProfileModule = {
+  buildProfileDataFromForm,
+  createEmptyTopicForm,
+  createProfileEditorFormState,
+  getEditableProfileData,
+};
+
+export default siteProfileModule;
